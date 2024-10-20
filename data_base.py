@@ -1,0 +1,205 @@
+import sqlite3
+
+
+def create_tables():
+    with sqlite3.connect('diabetes_tracker.db') as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tg_id TEXT UNIQUE,
+            gender TEXT,
+            height REAL,
+            weight REAL,
+            age INTEGER
+        )
+        ''')
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS times (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            time TEXT,
+            FOREIGN KEY(user_id) REFERENCES users(id)
+        )
+        ''')
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS images (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            sugar_level REAL,
+            image_id TEXT,
+            FOREIGN KEY(user_id) REFERENCES users(id)
+        )
+        ''')
+        conn.commit()
+
+
+# Функции для работы с пользователями
+def create_user(tg_id, gender, height, weight, age):
+    with sqlite3.connect('diabetes_tracker.db') as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+        INSERT INTO users (tg_id, gender, height, weight, age)
+        VALUES (?, ?, ?, ?, ?)
+        ''', (tg_id, gender, height, weight, age))
+        conn.commit()
+
+
+def edit_user(tg_id, gender=None, height=None, weight=None, age=None):
+    with sqlite3.connect('diabetes_tracker.db') as conn:
+        cursor = conn.cursor()
+        updates = []
+        if gender is not None:
+            updates.append(f"gender = '{gender}'")
+        if height is not None:
+            updates.append(f"height = {height}")
+        if weight is not None:
+            updates.append(f"weight = {weight}")
+        if age is not None:
+            updates.append(f"age = {age}")
+
+        if updates:
+            query = f"UPDATE users SET {', '.join(updates)} WHERE tg_id = ?"
+            cursor.execute(query, (tg_id,))
+            conn.commit()
+
+
+# def delete_user(tg_id):
+#     with sqlite3.connect('diabetes_tracker.db') as conn:
+#         cursor = conn.cursor()
+#         cursor.execute('DELETE FROM users WHERE tg_id = ?', (tg_id,))
+#         conn.commit()
+
+
+def get_user(tg_id):
+    with sqlite3.connect('diabetes_tracker.db') as conn:
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM users WHERE tg_id = ?', (tg_id,))
+        return cursor.fetchone()
+
+
+def add_image(tg_id, image_id, sugar_level=None):
+    with sqlite3.connect('diabetes_tracker.db') as conn:
+        cursor = conn.cursor()
+        cursor.execute('SELECT id FROM users WHERE tg_id = ?', (tg_id,))
+        user = cursor.fetchone()
+        if user:
+            cursor.execute('''
+            INSERT INTO images (user_id, sugar_level, image_id)
+            VALUES (?, ?, ?)
+            ''', (user[0], sugar_level, image_id))
+            conn.commit()
+
+
+def delete_images(tg_id):
+    with sqlite3.connect('diabetes_tracker.db') as conn:
+        cursor = conn.cursor()
+        cursor.execute('SELECT id FROM users WHERE tg_id = ?', (tg_id,))
+        user = cursor.fetchone()
+        if user:
+            cursor.execute('DELETE FROM images WHERE user_id = ?', (user[0],))
+            conn.commit()
+
+
+def get_images(tg_id):
+    with sqlite3.connect('diabetes_tracker.db') as conn:
+        cursor = conn.cursor()
+        cursor.execute('SELECT id FROM users WHERE tg_id = ?', (tg_id,))
+        user = cursor.fetchone()
+        if user:
+            cursor.execute('SELECT * FROM images WHERE user_id = ?', (user[0],))
+            return cursor.fetchall()
+    return []
+
+
+# Функции для работы с записями времени
+def add_time(tg_id, time):
+    with sqlite3.connect('diabetes_tracker.db') as conn:
+        cursor = conn.cursor()
+        cursor.execute('SELECT id FROM users WHERE tg_id = ?', (tg_id,))
+        user = cursor.fetchone()
+        if user:
+            cursor.execute('''
+            INSERT INTO times (user_id, time)
+            VALUES (?, ?)
+            ''', (user[0], time))
+            conn.commit()
+
+
+# def delete_times(tg_id):
+#     with sqlite3.connect('diabetes_tracker.db') as conn:
+#         cursor = conn.cursor()
+#         cursor.execute('SELECT id FROM users WHERE tg_id = ?', (tg_id,))
+#         user = cursor.fetchone()
+#         if user:
+#             cursor.execute('DELETE FROM times WHERE user_id = ?', (user[0],))
+#             conn.commit()
+
+
+def get_times(tg_id):
+    with sqlite3.connect('diabetes_tracker.db') as conn:
+        cursor = conn.cursor()
+        cursor.execute('SELECT id FROM users WHERE tg_id = ?', (tg_id,))
+        user = cursor.fetchone()
+        if user:
+            cursor.execute('SELECT * FROM times WHERE user_id = ?', (user[0],))
+            return cursor.fetchall()
+    return []
+
+def get_times_with_tg_id():
+    with sqlite3.connect('diabetes_tracker.db') as conn:
+        cursor = conn.cursor()
+
+        cursor.execute('''
+            SELECT users.tg_id, times.time 
+            FROM times 
+            JOIN users ON times.user_id = users.id
+        ''')
+
+        results = cursor.fetchall()
+
+        formatted_results = [[tg_id, time] for tg_id, time in results]
+
+    return formatted_results
+
+def get_all_users():
+    with sqlite3.connect('diabetes_tracker.db') as conn:
+        cursor = conn.cursor()
+        cursor.execute('SELECT tg_id FROM users')
+        result = cursor.fetchone()
+        if result:
+            formatted_results = [int(tg_id) for tg_id in result]
+            return formatted_results
+        else:
+            return []
+
+
+create_tables()
+
+if __name__ == '__main__':
+    # Создание пользователя
+    create_user('12345', 'male', 180, 75, 30)
+
+    # Получение информации о пользователе
+    print(get_user('12345'))
+
+    # Добавление времени
+    add_time('12345', '2024-10-12 10:00:00')
+
+    # Получение всех записей времени
+    print(get_times('12345'))
+
+    # Добавление изображения
+    add_image('12345', 5.2, 'image_001')
+
+    # Получение всех изображений
+    print(get_images('12345'))
+
+    # Редактирование пользователя
+    edit_user('12345', weight=80)
+
+    # Удаление изображений
+    delete_images('12345')
+
+    # # Удаление пользователя
+    # delete_user('12345')
