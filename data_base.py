@@ -19,11 +19,12 @@ def create_tables():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
             time TEXT,
+            name TEXT,
             FOREIGN KEY(user_id) REFERENCES users(id)
         )
         ''')
         cursor.execute('''
-        CREATE TABLE IF NOT EXISTS images (
+        CREATE TABLE IF NOT EXISTS measurement (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
             sugar_level REAL,
@@ -78,51 +79,51 @@ def get_user(tg_id):
         return cursor.fetchone()
 
 
-def add_image(tg_id, image_id, sugar_level=None):
+def add_measurement(tg_id, image_id, sugar_level=None):
     with sqlite3.connect('diabetes_tracker.db') as conn:
         cursor = conn.cursor()
         cursor.execute('SELECT id FROM users WHERE tg_id = ?', (tg_id,))
         user = cursor.fetchone()
         if user:
             cursor.execute('''
-            INSERT INTO images (user_id, sugar_level, image_id)
+            INSERT INTO measurement (user_id, sugar_level, image_id)
             VALUES (?, ?, ?)
             ''', (user[0], sugar_level, image_id))
             conn.commit()
 
 
-def delete_images(tg_id):
+def delete_measurement(tg_id):
     with sqlite3.connect('diabetes_tracker.db') as conn:
         cursor = conn.cursor()
         cursor.execute('SELECT id FROM users WHERE tg_id = ?', (tg_id,))
         user = cursor.fetchone()
         if user:
-            cursor.execute('DELETE FROM images WHERE user_id = ?', (user[0],))
+            cursor.execute('DELETE FROM measurement WHERE user_id = ?', (user[0],))
             conn.commit()
 
 
-def get_images(tg_id):
+def get_measurement(tg_id):
     with sqlite3.connect('diabetes_tracker.db') as conn:
         cursor = conn.cursor()
         cursor.execute('SELECT id FROM users WHERE tg_id = ?', (tg_id,))
         user = cursor.fetchone()
         if user:
-            cursor.execute('SELECT * FROM images WHERE user_id = ?', (user[0],))
+            cursor.execute('SELECT * FROM measurement WHERE user_id = ?', (user[0],))
             return cursor.fetchall()
     return []
 
 
 # Функции для работы с записями времени
-def add_time(tg_id, time):
+def add_time(tg_id, time, name):
     with sqlite3.connect('diabetes_tracker.db') as conn:
         cursor = conn.cursor()
         cursor.execute('SELECT id FROM users WHERE tg_id = ?', (tg_id,))
         user = cursor.fetchone()
         if user:
             cursor.execute('''
-            INSERT INTO times (user_id, time)
-            VALUES (?, ?)
-            ''', (user[0], time))
+            INSERT INTO times (user_id, time, name)
+            VALUES (?, ?, ?)
+            ''', (user[0], time, name))
             conn.commit()
 
 
@@ -146,21 +147,23 @@ def get_times(tg_id):
             return cursor.fetchall()
     return []
 
+
 def get_times_with_tg_id():
     with sqlite3.connect('diabetes_tracker.db') as conn:
         cursor = conn.cursor()
 
         cursor.execute('''
-            SELECT users.tg_id, times.time 
+            SELECT users.tg_id, times.time, times.name 
             FROM times 
             JOIN users ON times.user_id = users.id
         ''')
 
         results = cursor.fetchall()
 
-        formatted_results = [[tg_id, time] for tg_id, time in results]
+        formatted_results = [[tg_id, time, name] for tg_id, time, name in results]
 
     return formatted_results
+
 
 def get_all_users():
     with sqlite3.connect('diabetes_tracker.db') as conn:
@@ -173,6 +176,18 @@ def get_all_users():
         else:
             return []
 
+
+def update_user_h(tg_id, n_par):
+    with sqlite3.connect('diabetes_tracker.db') as conn:
+        cursor = conn.cursor()
+        cursor.execute('UPDATE users SET height = ? WHERE tg_id = ?', (n_par, tg_id,))
+        conn.commit()
+
+def update_user_w(tg_id, n_par):
+    with sqlite3.connect('diabetes_tracker.db') as conn:
+        cursor = conn.cursor()
+        cursor.execute('UPDATE users SET weight = ? WHERE tg_id = ?', (n_par, tg_id,))
+        conn.commit()
 
 create_tables()
 
@@ -193,13 +208,13 @@ if __name__ == '__main__':
     add_image('12345', 5.2, 'image_001')
 
     # Получение всех изображений
-    print(get_images('12345'))
+    print(get_measurement('12345'))
 
     # Редактирование пользователя
     edit_user('12345', weight=80)
 
     # Удаление изображений
-    delete_images('12345')
+    delete_measurement('12345')
 
     # # Удаление пользователя
     # delete_user('12345')
