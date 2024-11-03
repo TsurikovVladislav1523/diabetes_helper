@@ -29,9 +29,23 @@ def create_tables():
             user_id INTEGER,
             sugar_level REAL,
             image_id TEXT,
+            date TEXT,
             FOREIGN KEY(user_id) REFERENCES users(id)
         )
         ''')
+
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS menu (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            name TEXT,
+            type TEXT,
+            eat TEXT,
+            xe INTEGER,
+            FOREIGN KEY(user_id) REFERENCES users(id)
+        )
+        ''')
+
         conn.commit()
 
 
@@ -79,17 +93,31 @@ def get_user(tg_id):
         return cursor.fetchone()
 
 
-def add_measurement(tg_id, image_id, sugar_level=None):
+def add_measurement(tg_id, image_id, date, sugar_level=None):
     with sqlite3.connect('diabetes_tracker.db') as conn:
         cursor = conn.cursor()
         cursor.execute('SELECT id FROM users WHERE tg_id = ?', (tg_id,))
         user = cursor.fetchone()
         if user:
             cursor.execute('''
-            INSERT INTO measurement (user_id, sugar_level, image_id)
-            VALUES (?, ?, ?)
-            ''', (user[0], sugar_level, image_id))
+            INSERT INTO measurement (user_id, sugar_level, image_id, date)
+            VALUES (?, ?, ?, ?)
+            ''', (user[0], sugar_level, image_id, date))
             conn.commit()
+
+
+def add_eat(tg_id, name, type, eat, xe):
+    with sqlite3.connect('diabetes_tracker.db') as conn:
+        cursor = conn.cursor()
+        cursor.execute('SELECT id FROM users WHERE tg_id = ?', (tg_id,))
+        user = cursor.fetchone()
+        if user:
+            cursor.execute('''
+            INSERT INTO menu (user_id, name, type, eat, xe)
+            VALUES (?, ?, ?, ?, ?)
+            ''', (user[0], name, type, eat, xe))
+            conn.commit()
+
 
 
 def delete_measurement(tg_id):
@@ -183,11 +211,13 @@ def update_user_h(tg_id, n_par):
         cursor.execute('UPDATE users SET height = ? WHERE tg_id = ?', (n_par, tg_id,))
         conn.commit()
 
+
 def update_user_w(tg_id, n_par):
     with sqlite3.connect('diabetes_tracker.db') as conn:
         cursor = conn.cursor()
         cursor.execute('UPDATE users SET weight = ? WHERE tg_id = ?', (n_par, tg_id,))
         conn.commit()
+
 
 create_tables()
 

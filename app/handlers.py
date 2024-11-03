@@ -2,9 +2,12 @@ import asyncio
 import logging
 
 import io
+import os
+
 import requests
 from PIL import Image
 from PIL.ExifTags import TAGS
+import matplotlib.pyplot as plt
 
 from data_base import *
 from config import *
@@ -57,9 +60,11 @@ async def cmd_start(message: Message):
         await message.answer(
             "Вы не зарегистрированы в системе. Пожалуйста введите комаду /reg для прохождения регистрации")
 
+class Photo(StatesGroup):
+    sug_lvl = State()
 
 @router.message(F.document)
-async def get_photo(message: Message):
+async def get_photo(message: Message, state: FSMContext):
     # await message.answer(f'ID фото: {message.document.file_id}')
     id = message.from_user.id
     if id in registered:
@@ -71,6 +76,8 @@ async def get_photo(message: Message):
         image = Image.open(io.BytesIO(img1.content))
         exifdata = image.getexif()
         # t_n = dt.datetime(exifdata[306].split(":"))
+        date = dt.datetime.strptime(exifdata[306], '%Y:%m:%d %H:%M:%S')
+        date = (f'{date.day}.{date.month}')
         t_d = dt.datetime.now() - dt.datetime.strptime(exifdata[306], '%Y:%m:%d %H:%M:%S')
         delta = t_d.seconds / 60
         if delta > 10:
@@ -78,14 +85,75 @@ async def get_photo(message: Message):
                 "Данное фото было сделано заранее, пожалуйста, отправьте актуальные данные")
         # создать задачу-напоминание
         else:
-            add_measurement(id, file_id) # !!! Вот тут дописать уровень сахара 3м параметром
             await message.answer(
-                f"Данные успешно сохранены, ID фото: {message.document.file_id}, Время: {t_d}, Время фото: {exifdata[306]}")
+                f"Введите уровень сахара")
+            await state.set_state(Photo.sug_lvl)
+            await state.update_data(sug_lvl=(date, file_id))
+
     else:
         await message.answer(
             "Вы не зарегистрированы в системе. Пожалуйста введите комаду /reg для прохождения регистрации")
 
 
+@router.message(Photo.sug_lvl)
+async def reg_three(message: Message, state: FSMContext):
+    '''ненужная функция, после подключения распознавалки удалить'''
+
+    lvl = message.text
+    id = message.from_user.id
+    date = await state.get_data()
+    add_measurement(id, date["sug_lvl"][1], date["sug_lvl"][0], sugar_level=lvl)
+    await message.answer(
+        f"Данные успешно сохранены, ID фото: {message.document.file_id}, Время: {date['sug_lvl'][0]}")
+    await state.clear()
+
+
+@router.message(Command("state"))
+async def state(message:Message):
+    id = message.from_user.id
+    all_photo = get_measurement(id)
+    slovar = {}
+    for ph in all_photo:
+        date = ph[4]
+        if date in slovar:
+            slovar[date].append(float(ph[2]))
+        else:
+            slovar[date] = []
+            slovar[date].append(float(ph[2]))
+    x = []
+    y = []
+    for key in slovar:
+        sp = slovar[key]
+        x.append(key)
+        res = round(sum(sp) / len(sp), 1)
+        y.append(res)
+    # ax = plt.axes()
+    # ax.set_facecolor("dimgray")
+    plt.title("Среднее значение уровня сахара за каждый из дней")  # заголовок
+    plt.xlabel("День")  # ось абсцисс
+    plt.ylabel("Уровень сахара")  # ось ординат
+    plt.grid(True)  # включение отображение сетки
+    plt.minorticks_on()
+    plt.plot(x, y, "b--", marker='o', markersize=4)  # построение графика
+    plt.savefig('images/1.png')
+    graph = FSInputFile("images/1.png")
+    await message.answer_photo(photo=graph)
+    os.remove("images/1.png")
+
+    plt.clf()
+    plt.minorticks_on()
+    plt.bar(x, y, label='Уровень сахара', color='skyblue')  # Параметр label позволяет задать название величины для легенды
+    plt.xlabel('День')
+    plt.ylabel('Уровень сахара')
+    plt.title('Среднее значение уровня сахара за каждый из дней')
+    plt.legend(loc='lower left')
+    for c in range(len(y)):
+        plt.annotate(y[c], xy=(c-0.25, y[c]-0.5), color='black')
+    plt.savefig('images/1.png')
+    graph = FSInputFile("images/1.png")
+    await message.answer_photo(photo=graph)
+    os.remove("images/1.png")
+    
 @router.message(F.photo)
 async def get_photo(message: Message):
     await message.answer(f'Отправьте, пожалуйста, данное фото без сжатия')
@@ -164,24 +232,35 @@ class Menu(StatesGroup):
     salats = State()
     soups = State()
     main = State()
+    final = State()
+    type = State()
 
 
 @router.message(Command('create_menu'))
 async def menu(message: Message, state: FSMContext):
+    id = message.from_user.id
     await message.answer(
-        f"Для составления Вашего рациона введите введите название приема пищи, указанное при регистрации")
+        f"Для составления Вашего рациона выберете название приема пищи, указанное при регистрации", reply_markup=await kb.inline_eats(id))
     await state.set_state(Menu.drinks)
 
 
 @router.message(Menu.drinks)
 async def reg_three(message: Message, state: FSMContext):
+    await state.update_data(type=message.text)
     await message.answer(
-        f"Введите напитки, которые вы пьете в этот прием пиши в формате \n Напиток1 [пробел дефис пробел] Кол-во ХЕ \n Напиток2 [пробел дефис пробел] Кол-во ХЕ")
+        f"Введите напитки, которые вы пьете в этот прием пиши в формате \n Напиток1 [пробел дефис пробел] Кол-во ХЕ \n Напиток2 [пробел дефис пробел] Кол-во ХЕ", reply_markup=kb.ReplyKeyboardRemove())
     await state.set_state(Menu.salats)
 
 
 @router.message(Menu.salats)
 async def reg_three(message: Message, state: FSMContext):
+    id = message.from_user.id
+    text = message.text.split("\n")
+    type = await state.get_data()
+    type = type["type"]
+    for i in text:
+        name, xe = i.split(" - ")
+        add_eat(id, name, "drinks", type, xe)
     await message.answer(
         f"Введите салаты, которые вы едите в этот прием пиши в формате \n Салат1 [пробел дефис пробел] Кол-во ХЕ \n Салат2 [пробел дефис пробел] Кол-во ХЕ")
     await state.set_state(Menu.soups)
@@ -189,6 +268,13 @@ async def reg_three(message: Message, state: FSMContext):
 
 @router.message(Menu.soups)
 async def reg_three(message: Message, state: FSMContext):
+    id = message.from_user.id
+    text = message.text.split("\n")
+    type = await state.get_data()
+    type = type["type"]
+    for i in text:
+        name, xe = i.split(" - ")
+        add_eat(id, name, "salats", type, xe)
     await message.answer(
         f"Введите супы или каши, которые вы едите в этот прием пиши в формате \n Суп1 [пробел дефис пробел] Кол-во ХЕ \n Каша2 [пробел дефис пробел] Кол-во ХЕ")
     await state.set_state(Menu.main)
@@ -196,10 +282,30 @@ async def reg_three(message: Message, state: FSMContext):
 
 @router.message(Menu.main)
 async def reg_three(message: Message, state: FSMContext):
+    id = message.from_user.id
+    text = message.text.split("\n")
+    type = await state.get_data()
+    type = type["type"]
+    for i in text:
+        name, xe = i.split(" - ")
+        add_eat(id, name, "soups", type, xe)
     await message.answer(
         f"Введите основные блюда, которые вы едите в этот прием пиши в формате \n Блюдо1 [пробел дефис пробел] Кол-во ХЕ \n Блюдo2 [пробел дефис пробел] Кол-во ХЕ")
-    await state.clear()
+    await state.set_state(Menu.final)
 
+
+@router.message(Menu.final)
+async def reg_three(message: Message, state: FSMContext):
+    id = message.from_user.id
+    text = message.text.split("\n")
+    type = await state.get_data()
+    type = type["type"]
+    for i in text:
+        name, xe = i.split(" - ")
+        add_eat(id, name, "main", type, xe)
+    await message.answer(
+        f"Составление рациона завершено")
+    await state.clear()
 
 @router.message(Command('reg'))
 async def reg_one(message: Message, state: FSMContext):
@@ -218,7 +324,7 @@ async def reg_two(callback: CallbackQuery, state: FSMContext):
     msg = await state.get_data()
     msg = msg["msg_id"]
     await bot.edit_message_caption(chat_id=msg[1], message_id=msg[0], caption="Введите Ваш рост")
-    # await callback.message.edit_caption(caption="Введите Ваш рост")
+    await callback.message.answer(text="Введите Bаш рост")
 
 
 @router.callback_query(F.data == 'women', Reg.gender)
@@ -228,7 +334,7 @@ async def reg_two(callback: CallbackQuery, state: FSMContext):
     msg = await state.get_data()
     msg = msg["msg_id"]
     await bot.edit_message_caption(chat_id=msg[1], message_id=msg[0], caption="Введите Ваш рост")
-    # await callback.message.edit_caption(caption='Введите Ваш рост')
+    await callback.message.answer(text="Введите Bаш рост")
 
 
 @router.message(Reg.height)
@@ -238,7 +344,7 @@ async def reg_three(message: Message, state: FSMContext):
     msg = await state.get_data()
     msg = msg["msg_id"]
     await bot.edit_message_caption(chat_id=msg[1], message_id=msg[0], caption='Введите Ваш вес')
-    # await message.answer_photo(photo=logo, caption="Введите Bаш вес")
+    await message.answer(text="Введите Bаш вес")
     # await message.edit_caption(caption='Введите Ваш вес')
 
 
@@ -249,6 +355,7 @@ async def reg_four(message: Message, state: FSMContext):
     msg = await state.get_data()
     msg = msg["msg_id"]
     await bot.edit_message_caption(chat_id=msg[1], message_id=msg[0], caption='Введите Ваш возраст')
+    await message.answer(text="Введите Bаш возраст")
 
 
 @router.message(Reg.age)
@@ -258,19 +365,19 @@ async def reg_five(message: Message, state: FSMContext):
     msg = await state.get_data()
     msg = msg["msg_id"]
     await bot.edit_message_caption(chat_id=msg[1], message_id=msg[0],
-                                   caption="Введите время Ваших приемов пищи через пробел в формате: {ЧЧ:ММ}, а далее название приема пищи к каждому времени соответсвенно {завтрак обед ужин}")
+                                   caption="Введите время Ваших приемов пищи на отдельных строках в формате: {ЧЧ:ММ [пробел дефис пробел] название приема пищи}")
 
 
 @router.message(Reg.meals)
 async def reg_five(message: Message, state: FSMContext):
-    await state.update_data(meals=message.text.split(" "))
+    await state.update_data(meals=message.text.split("\n"))
     id = message.from_user.id
     date_state = await state.get_data()
     print(date_state)
     create_user(id, date_state["gender"], date_state["height"], date_state["weight"],
                 date_state["age"])
-    for i in range(0, len(date_state["meals"]) // 2):
-        time, name = date_state["meals"][i], date_state["meals"][i + len(date_state["meals"]) // 2]
+    for i in date_state["meals"]:
+        time, name = i.split(" - ")
         add_time(id, time, name)
         hours, minutes = map(int, time.split(":"))
         # print(tg_id, minutes, hours)
