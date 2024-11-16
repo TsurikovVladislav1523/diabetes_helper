@@ -45,6 +45,25 @@ def create_tables():
             FOREIGN KEY(user_id) REFERENCES users(id)
         )
         ''')
+        cursor.execute('''
+                CREATE TABLE IF NOT EXISTS observers (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER,
+                    tg_id INTEGER,
+                    FOREIGN KEY(user_id) REFERENCES users(id)
+                )
+                ''')
+
+        cursor.execute('''
+                CREATE TABLE IF NOT EXISTS meals (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER,
+                    name TEXT,
+                    eat TEXT,
+                    date DATETIME,
+                    FOREIGN KEY(user_id) REFERENCES users(id)
+                )
+                ''')
 
         conn.commit()
 
@@ -58,6 +77,16 @@ def create_user(tg_id, gender, height, weight, age):
         VALUES (?, ?, ?, ?, ?)
         ''', (tg_id, gender, height, weight, age))
         conn.commit()
+
+def get_menu(tg_id, name=None):
+    with sqlite3.connect('diabetes_tracker.db') as conn:
+        cursor = conn.cursor()
+        cursor.execute('SELECT id FROM users WHERE tg_id = ?', (tg_id,))
+        user = cursor.fetchone()
+        if user:
+            cursor.execute('SELECT * FROM menu WHERE user_id = ? and eat = ?', (user[0], name, ))
+            return cursor.fetchall()
+    return []
 
 
 def edit_user(tg_id, gender=None, height=None, weight=None, age=None):
@@ -104,6 +133,27 @@ def add_measurement(tg_id, image_id, date, sugar_level=None):
             VALUES (?, ?, ?, ?)
             ''', (user[0], sugar_level, image_id, date))
             conn.commit()
+
+def add_oserver(user_id, tg_id):
+    with sqlite3.connect('diabetes_tracker.db') as conn:
+        cursor = conn.cursor()
+        cursor.execute('SELECT id FROM users WHERE tg_id = ?', (user_id,))
+        user = cursor.fetchone()
+        if user:
+            cursor.execute('''
+            INSERT INTO observers (user_id, tg_id)
+            VALUES (?, ?)
+            ''', (user[0], tg_id))
+            conn.commit()
+
+def get_obs_id(tg_id):
+    with sqlite3.connect('diabetes_tracker.db') as conn:
+        cursor = conn.cursor()
+        res_id = []
+        users = cursor.execute('SELECT user_id FROM observers WHERE tg_id = ?', (tg_id,)).fetchall()
+        for user_id in users:
+            res_id.append(cursor.execute('SELECT tg_id FROM users WHERE id = ?', (user_id[0],)).fetchall()[0][0])
+        return res_id
 
 
 def add_eat(tg_id, name, type, eat, xe):
@@ -222,29 +272,31 @@ def update_user_w(tg_id, n_par):
 create_tables()
 
 if __name__ == '__main__':
-    # Создание пользователя
-    create_user('12345', 'male', 180, 75, 30)
+    print(get_menu(1057505123, "обед"))
+    # # Создание пользователя
+    # create_user('12345', 'male', 180, 75, 30)
+    #
+    # # Получение информации о пользователе
+    # print(get_user('12345'))
+    #
+    # # Добавление времени
+    # add_time('12345', '2024-10-12 10:00:00')
+    #
+    # # Получение всех записей времени
+    # print(get_times('12345'))
+    #
+    # # Добавление изображения
+    # add_image('12345', 5.2, 'image_001')
+    #
+    # # Получение всех изображений
+    # print(get_measurement('12345'))
+    #
+    # # Редактирование пользователя
+    # edit_user('12345', weight=80)
+    #
+    # # Удаление изображений
+    # delete_measurement('12345')
+    #
+    # # # Удаление пользователя
+    # # delete_user('12345')
 
-    # Получение информации о пользователе
-    print(get_user('12345'))
-
-    # Добавление времени
-    add_time('12345', '2024-10-12 10:00:00')
-
-    # Получение всех записей времени
-    print(get_times('12345'))
-
-    # Добавление изображения
-    add_image('12345', 5.2, 'image_001')
-
-    # Получение всех изображений
-    print(get_measurement('12345'))
-
-    # Редактирование пользователя
-    edit_user('12345', weight=80)
-
-    # Удаление изображений
-    delete_measurement('12345')
-
-    # # Удаление пользователя
-    # delete_user('12345')

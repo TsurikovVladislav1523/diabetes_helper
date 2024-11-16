@@ -36,12 +36,16 @@ sheduler.start()
 registered = get_all_users()
 print(registered)
 
+sheduler.add_job(send_message_cron, trigger="cron", hour=17,
+                 minute=50,
+                 start_date=dt.datetime.now(), kwargs={'bot': bot, "chat_id": 1057505123, "name": "обед", "state": FSMContext})
+
 for tg_id, time, name in get_times_with_tg_id():
     hours, minutes = map(int, time.split(":"))
     # print(tg_id, minutes, hours)
     sheduler.add_job(send_message_cron, trigger="cron", hour=hours,
                      minute=minutes,
-                     start_date=dt.datetime.now(), kwargs={'bot': bot, "chat_id": tg_id, "name": name})
+                     start_date=dt.datetime.now(), kwargs={'bot': bot, "chat_id": id, "name": name, "state": FSMContext})
 
 
 class Reg(StatesGroup):
@@ -104,7 +108,7 @@ async def reg_three(message: Message, state: FSMContext):
     date = await state.get_data()
     add_measurement(id, date["sug_lvl"][1], date["sug_lvl"][0], sugar_level=lvl)
     await message.answer(
-        f"Данные успешно сохранены, ID фото: {message.document.file_id}, Время: {date['sug_lvl'][0]}")
+        f"Данные успешно сохранены, Время: {date['sug_lvl'][0]}")
     await state.clear()
 
 
@@ -153,6 +157,7 @@ async def state(message:Message):
     graph = FSInputFile("images/1.png")
     await message.answer_photo(photo=graph)
     os.remove("images/1.png")
+    plt.clf()
     
 @router.message(F.photo)
 async def get_photo(message: Message):
@@ -324,7 +329,6 @@ async def reg_two(callback: CallbackQuery, state: FSMContext):
     msg = await state.get_data()
     msg = msg["msg_id"]
     await bot.edit_message_caption(chat_id=msg[1], message_id=msg[0], caption="Введите Ваш рост")
-    await callback.message.answer(text="Введите Bаш рост")
 
 
 @router.callback_query(F.data == 'women', Reg.gender)
@@ -334,7 +338,6 @@ async def reg_two(callback: CallbackQuery, state: FSMContext):
     msg = await state.get_data()
     msg = msg["msg_id"]
     await bot.edit_message_caption(chat_id=msg[1], message_id=msg[0], caption="Введите Ваш рост")
-    await callback.message.answer(text="Введите Bаш рост")
 
 
 @router.message(Reg.height)
@@ -366,6 +369,7 @@ async def reg_five(message: Message, state: FSMContext):
     msg = msg["msg_id"]
     await bot.edit_message_caption(chat_id=msg[1], message_id=msg[0],
                                    caption="Введите время Ваших приемов пищи на отдельных строках в формате: {ЧЧ:ММ [пробел дефис пробел] название приема пищи}")
+    await message.answer(text='Введите время Ваших приемов пищи на отдельных строках в формате: {ЧЧ:ММ [пробел дефис пробел] название приема пищи}')
 
 
 @router.message(Reg.meals)
@@ -383,11 +387,108 @@ async def reg_five(message: Message, state: FSMContext):
         # print(tg_id, minutes, hours)
         sheduler.add_job(send_message_cron, trigger="cron", hour=hours,
                          minute=minutes,
-                         start_date=dt.datetime.now(), kwargs={'bot': bot, "chat_id": id, "name": name})
+                         start_date=dt.datetime.now(), kwargs={'bot': bot, "chat_id": id, "name": name, "state": state})
     registered.append(id)
+    print(registered)
     await message.answer('Спасибо, регистрация завершена.')
     await state.clear()
 
+
+'''Блок смотрящего'''
+class Obs(StatesGroup):
+    id = State()
+@router.message(Command('add_observer'))
+async def add_obs(message: Message, state: FSMContext):
+    await message.answer('Для привязки к Вам смотрящего введите его телеграм id')
+    print("Для привязки к Вам смотрящего введите его телеграм id")
+    await state.set_state(Obs.id)
+
+@router.message(Obs.id)
+async def add_obs(message: Message, state: FSMContext):
+    obs_id = message.text
+    id = message.from_user.id
+    add_oserver(id, obs_id)
+    await state.clear()
+
+class Ward(StatesGroup):
+    id = State()
+@router.message(Command("ward_stat"))
+async def add_obs(message: Message, state: FSMContext):
+    id = message.from_user.id
+    users = get_obs_id(id)
+    await message.answer(
+        f"Выберете id подопечного, у которого хотите посмотреть статистику",
+        reply_markup=await kb.wards(users))
+    await state.set_state(Ward.id)
+
+
+@router.message(Ward.id)
+async def add_obs(message: Message, state: FSMContext):
+    id = message.text
+    await message.answer(
+        f"Статистика пользователя {id}:",
+        reply_markup=kb.ReplyKeyboardRemove())
+
+    all_photo = get_measurement(id)
+    slovar = {}
+    for ph in all_photo:
+        date = ph[4]
+        if date in slovar:
+            slovar[date].append(float(ph[2]))
+        else:
+            slovar[date] = []
+            slovar[date].append(float(ph[2]))
+    x = []
+    y = []
+    for key in slovar:
+        sp = slovar[key]
+        x.append(key)
+        res = round(sum(sp) / len(sp), 1)
+        y.append(res)
+    # ax = plt.axes()
+    # ax.set_facecolor("dimgray")
+    plt.title("Среднее значение уровня сахара за каждый из дней")  # заголовок
+    plt.xlabel("День")  # ось абсцисс
+    plt.ylabel("Уровень сахара")  # ось ординат
+    plt.grid(True)  # включение отображение сетки
+    plt.minorticks_on()
+    plt.plot(x, y, "b--", marker='o', markersize=4)  # построение графика
+    plt.savefig('images/1.png')
+    graph = FSInputFile("images/1.png")
+    await message.answer_photo(photo=graph)
+    os.remove("images/1.png")
+
+    plt.clf()
+    plt.minorticks_on()
+    plt.bar(x, y, label='Уровень сахара',
+            color='skyblue')  # Параметр label позволяет задать название величины для легенды
+    plt.xlabel('День')
+    plt.ylabel('Уровень сахара')
+    plt.title('Среднее значение уровня сахара за каждый из дней')
+    plt.legend(loc='lower left')
+    for c in range(len(y)):
+        plt.annotate(y[c], xy=(c - 0.25, y[c] - 0.5), color='black')
+    plt.savefig('images/1.png')
+    graph = FSInputFile("images/1.png")
+    await message.answer_photo(photo=graph)
+    os.remove("images/1.png")
+    plt.clf()
+
+    await state.clear()
+
+'''Конец блока'''
+
+
+'''Блок с шедулером'''
+
+@router.message(M.inp)
+async def process_eaten(message: types.Message, state: FSMContext):
+    eaten_indices = message.text.split(' ')
+    eaten_indices = [int(index.strip()) for index in eaten_indices if index.strip().isdigit()]
+    await state.clear()
+    print(eaten_indices)
+
+'''Конец блока шедулер'''
 
 @router.message(Command("reg_data"))
 async def reg_data(message: Message):

@@ -21,3 +21,11 @@ async def inline_eats(id):
     for eat in eats:
         keyboard.add(KeyboardButton(text=eat))
     return keyboard.adjust(2).as_markup(resize_keyboard=True)
+
+
+async def wards(users):
+    keyboard = ReplyKeyboardBuilder()
+    for user in users:
+        keyboard.add(KeyboardButton(text=user))
+    return keyboard.adjust(2).as_markup(resize_keyboard=True)
+
