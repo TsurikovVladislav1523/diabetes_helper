@@ -8,45 +8,45 @@ import requests
 from PIL import Image
 from PIL.ExifTags import TAGS
 import matplotlib.pyplot as plt
-
+from aiogram.fsm.storage.base import StorageKey
+from aiogram.fsm.storage.memory import MemoryStorage
 from data_base import *
 from config import *
 import app.keyboards as kb
 
 from app.sheduler import *
 import datetime as dt
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from aiogram import Bot, Dispatcher, F, Router
 from aiogram.filters import CommandStart, Command
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.context import FSMContext
-
+storage = MemoryStorage()
 bot = Bot(token=TOKEN)
 router = Router()
-sheduler = AsyncIOScheduler(timezone="Europe/Moscow")
-sheduler.start()
 
-# sheduler.add_job(send_message_time, trigger="date", run_date=dt.datetime.now() + dt.timedelta(seconds=1), kwargs={'bot': bot})
-# sheduler.add_job(send_message_cron, trigger="cron", hour=dt.datetime.now().hour, minute=dt.datetime.now().minute + 1,
-#                 start_date=dt.datetime.now(), kwargs={'bot': bot})
-# sheduler.add_job(send_message_interval, trigger="interval",seconds=3, kwargs={'bot': bot})
+sheduler.start()
 
 registered = get_all_users()
 print(registered)
+sheduler.add_job(send_message_cron, trigger="date", run_date=dt.datetime.now() + dt.timedelta(seconds=5),
+                 kwargs={'bot': bot, "chat_id": 1057505123, "name": "обед", "hours": 20, "minutes": 5, "state": FSMContext(storage=storage, key=StorageKey(bot_id=int(BOT_ID), chat_id=1057505123, user_id=1057505123, thread_id=None, business_connection_id=None, destiny='default'))})
 
-sheduler.add_job(send_message_cron, trigger="cron", hour=17,
-                 minute=50,
-                 start_date=dt.datetime.now(), kwargs={'bot': bot, "chat_id": 1057505123, "name": "обед", "state": FSMContext})
 
 for tg_id, time, name in get_times_with_tg_id():
     hours, minutes = map(int, time.split(":"))
     # print(tg_id, minutes, hours)
-    sheduler.add_job(send_message_cron, trigger="cron", hour=hours,
-                     minute=minutes,
-                     start_date=dt.datetime.now(), kwargs={'bot': bot, "chat_id": id, "name": name, "state": FSMContext})
-
+    t_n = dt.datetime.now()
+    t_d = dt.datetime.strptime(f"{t_n.year}:{t_n.month}:{t_n.day} {hours}:{minutes}", '%Y:%m:%d %H:%M') - t_n
+    print(t_d)
+    if t_n.hour*100+t_n.minute > hours*100+minutes:
+        t_n = dt.datetime.now() + dt.timedelta(days=1)
+        t_d = t_n - dt.datetime.strptime(f"{dt.datetime.now().year}:{dt.datetime.now().month}:{dt.datetime.now().day} {hours}:{minutes}", '%Y:%m:%d %H:%M')
+        print(t_d)
+    sheduler.add_job(send_message_cron, trigger="date", run_date=t_d +dt.datetime.now(),
+                     kwargs={'bot': bot, "chat_id": tg_id, "name": name, "hours": hours, "minutes": minutes, "state": FSMContext(storage=storage, key=StorageKey(bot_id=int(BOT_ID), chat_id=tg_id, user_id=tg_id, thread_id=None, business_connection_id=None, destiny='default'))})
+    noise_sl[tg_id] = 0
 
 class Reg(StatesGroup):
     gender = State()
@@ -58,14 +58,18 @@ class Reg(StatesGroup):
 
 
 @router.message(CommandStart())
-async def cmd_start(message: Message):
+async def cmd_start(message: Message, state: FSMContext):
     await message.answer(START_TXT)
+    print(state.storage, state.key)
+
     if message.from_user.id not in registered:
         await message.answer(
             "Вы не зарегистрированы в системе. Пожалуйста введите комаду /reg для прохождения регистрации")
 
+
 class Photo(StatesGroup):
     sug_lvl = State()
+
 
 @router.message(F.document)
 async def get_photo(message: Message, state: FSMContext):
@@ -93,6 +97,7 @@ async def get_photo(message: Message, state: FSMContext):
                 f"Введите уровень сахара")
             await state.set_state(Photo.sug_lvl)
             await state.update_data(sug_lvl=(date, file_id))
+            noise_sl[str(id)] = 0
 
     else:
         await message.answer(
@@ -113,7 +118,7 @@ async def reg_three(message: Message, state: FSMContext):
 
 
 @router.message(Command("state"))
-async def state(message:Message):
+async def state(message: Message):
     id = message.from_user.id
     all_photo = get_measurement(id)
     slovar = {}
@@ -146,19 +151,27 @@ async def state(message:Message):
 
     plt.clf()
     plt.minorticks_on()
-    plt.bar(x, y, label='Уровень сахара', color='skyblue')  # Параметр label позволяет задать название величины для легенды
+    plt.bar(x, y, label='Уровень сахара',
+            color='skyblue')  # Параметр label позволяет задать название величины для легенды
     plt.xlabel('День')
     plt.ylabel('Уровень сахара')
     plt.title('Среднее значение уровня сахара за каждый из дней')
     plt.legend(loc='lower left')
     for c in range(len(y)):
-        plt.annotate(y[c], xy=(c-0.25, y[c]-0.5), color='black')
+        plt.annotate(y[c], xy=(c - 0.25, y[c] - 0.5), color='black')
     plt.savefig('images/1.png')
     graph = FSInputFile("images/1.png")
     await message.answer_photo(photo=graph)
     os.remove("images/1.png")
     plt.clf()
-    
+
+    all_photo = get_meal(id)
+    print(all_photo)
+    print(all_photo)
+    print(all_photo)
+    print(all_photo)
+
+
 @router.message(F.photo)
 async def get_photo(message: Message):
     await message.answer(f'Отправьте, пожалуйста, данное фото без сжатия')
@@ -193,6 +206,10 @@ async def change_p_one(message: Message, state: FSMContext):
     msg = await message.answer_photo(photo=logo, caption="Выберете параметр, который хотите изменить",
                                      reply_markup=kb.change_key)
 
+@router.message(Command("get_id"))
+async def change_p_one(message: Message, state: FSMContext):
+    id = message.from_user.id
+    await message.answer(text=str(id))
 
 @router.callback_query(F.data == 'height')
 async def change_two(callback: CallbackQuery, state: FSMContext):
@@ -245,7 +262,8 @@ class Menu(StatesGroup):
 async def menu(message: Message, state: FSMContext):
     id = message.from_user.id
     await message.answer(
-        f"Для составления Вашего рациона выберете название приема пищи, указанное при регистрации", reply_markup=await kb.inline_eats(id))
+        f"Для составления Вашего рациона выберете название приема пищи, указанное при регистрации",
+        reply_markup=await kb.inline_eats(id))
     await state.set_state(Menu.drinks)
 
 
@@ -253,7 +271,8 @@ async def menu(message: Message, state: FSMContext):
 async def reg_three(message: Message, state: FSMContext):
     await state.update_data(type=message.text)
     await message.answer(
-        f"Введите напитки, которые вы пьете в этот прием пиши в формате \n Напиток1 [пробел дефис пробел] Кол-во ХЕ \n Напиток2 [пробел дефис пробел] Кол-во ХЕ", reply_markup=kb.ReplyKeyboardRemove())
+        f"Введите напитки, которые вы пьете в этот прием пиши в формате \n Напиток1 [пробел дефис пробел] Кол-во ХЕ \n Напиток2 [пробел дефис пробел] Кол-во ХЕ",
+        reply_markup=kb.ReplyKeyboardRemove())
     await state.set_state(Menu.salats)
 
 
@@ -312,6 +331,7 @@ async def reg_three(message: Message, state: FSMContext):
         f"Составление рациона завершено")
     await state.clear()
 
+
 @router.message(Command('reg'))
 async def reg_one(message: Message, state: FSMContext):
     await state.set_state(Reg.gender)
@@ -369,7 +389,8 @@ async def reg_five(message: Message, state: FSMContext):
     msg = msg["msg_id"]
     await bot.edit_message_caption(chat_id=msg[1], message_id=msg[0],
                                    caption="Введите время Ваших приемов пищи на отдельных строках в формате: {ЧЧ:ММ [пробел дефис пробел] название приема пищи}")
-    await message.answer(text='Введите время Ваших приемов пищи на отдельных строках в формате: {ЧЧ:ММ [пробел дефис пробел] название приема пищи}')
+    await message.answer(
+        text='Введите время Ваших приемов пищи на отдельных строках в формате: {ЧЧ:ММ [пробел дефис пробел] название приема пищи}')
 
 
 @router.message(Reg.meals)
@@ -389,19 +410,25 @@ async def reg_five(message: Message, state: FSMContext):
                          minute=minutes,
                          start_date=dt.datetime.now(), kwargs={'bot': bot, "chat_id": id, "name": name, "state": state})
     registered.append(id)
+    noise_sl[id] = 0
     print(registered)
     await message.answer('Спасибо, регистрация завершена.')
     await state.clear()
 
 
 '''Блок смотрящего'''
+
+
 class Obs(StatesGroup):
     id = State()
+
+
 @router.message(Command('add_observer'))
 async def add_obs(message: Message, state: FSMContext):
     await message.answer('Для привязки к Вам смотрящего введите его телеграм id')
     print("Для привязки к Вам смотрящего введите его телеграм id")
     await state.set_state(Obs.id)
+
 
 @router.message(Obs.id)
 async def add_obs(message: Message, state: FSMContext):
@@ -410,8 +437,11 @@ async def add_obs(message: Message, state: FSMContext):
     add_oserver(id, obs_id)
     await state.clear()
 
+
 class Ward(StatesGroup):
     id = State()
+
+
 @router.message(Command("ward_stat"))
 async def add_obs(message: Message, state: FSMContext):
     id = message.from_user.id
@@ -474,21 +504,78 @@ async def add_obs(message: Message, state: FSMContext):
     os.remove("images/1.png")
     plt.clf()
 
+
+
+    # slovar = {}
+    # for ph in all_photo:
+    #     date = ph[4]
+    #     if date in slovar:
+    #         slovar[date].append(float(ph[2]))
+    #     else:
+    #         slovar[date] = []
+    #         slovar[date].append(float(ph[2]))
+    # x = []
+    # y = []
+    # for key in slovar:
+    #     sp = slovar[key]
+    #     x.append(key)
+    #     res = round(sum(sp) / len(sp), 1)
+    #     y.append(res)
+    # # ax = plt.axes()
+    # # ax.set_facecolor("dimgray")
+    # plt.title("Среднее значение уровня сахара за каждый из дней")  # заголовок
+    # plt.xlabel("День")  # ось абсцисс
+    # plt.ylabel("Уровень сахара")  # ось ординат
+    # plt.grid(True)  # включение отображение сетки
+    # plt.minorticks_on()
+    # plt.plot(x, y, "b--", marker='o', markersize=4)  # построение графика
+    # plt.savefig('images/1.png')
+    # graph = FSInputFile("images/1.png")
+    # await message.answer_photo(photo=graph)
+    # os.remove("images/1.png")
+    #
+    # plt.clf()
+    # plt.minorticks_on()
+    # plt.bar(x, y, label='Уровень сахара',
+    #         color='skyblue')  # Параметр label позволяет задать название величины для легенды
+    # plt.xlabel('День')
+    # plt.ylabel('Уровень сахара')
+    # plt.title('Среднее значение уровня сахара за каждый из дней')
+    # plt.legend(loc='lower left')
+    # for c in range(len(y)):
+    #     plt.annotate(y[c], xy=(c - 0.25, y[c] - 0.5), color='black')
+    # plt.savefig('images/1.png')
+    # graph = FSInputFile("images/1.png")
+    # await message.answer_photo(photo=graph)
+    # os.remove("images/1.png")
+    # plt.clf()
+
     await state.clear()
+
 
 '''Конец блока'''
 
-
 '''Блок с шедулером'''
+
 
 @router.message(M.inp)
 async def process_eaten(message: types.Message, state: FSMContext):
+    id = message.from_user.id
     eaten_indices = message.text.split(' ')
     eaten_indices = [int(index.strip()) for index in eaten_indices if index.strip().isdigit()]
+    xes = await state.get_data()
+    xes, type = xes["xes"], xes["type"]
+    print(xes, type)
+    date = f"{dt.datetime.now().day}.{dt.datetime.now().month}"
+    xe = 0
+    for i in eaten_indices:
+        xe += xes[i]
     await state.clear()
-    print(eaten_indices)
+    add_meal(id, type, xe, date)
+
 
 '''Конец блока шедулер'''
+
 
 @router.message(Command("reg_data"))
 async def reg_data(message: Message):

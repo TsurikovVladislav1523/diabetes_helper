@@ -58,9 +58,9 @@ def create_tables():
                 CREATE TABLE IF NOT EXISTS meals (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     user_id INTEGER,
-                    name TEXT,
-                    eat TEXT,
-                    date DATETIME,
+                    type TEXT,
+                    xe INTEGER,
+                    date TEXT,
                     FOREIGN KEY(user_id) REFERENCES users(id)
                 )
                 ''')
@@ -84,7 +84,7 @@ def get_menu(tg_id, name=None):
         cursor.execute('SELECT id FROM users WHERE tg_id = ?', (tg_id,))
         user = cursor.fetchone()
         if user:
-            cursor.execute('SELECT * FROM menu WHERE user_id = ? and eat = ?', (user[0], name, ))
+            cursor.execute('SELECT name, type, xe FROM menu WHERE user_id = ? and eat = ?', (user[0], name, ))
             return cursor.fetchall()
     return []
 
@@ -155,6 +155,15 @@ def get_obs_id(tg_id):
             res_id.append(cursor.execute('SELECT tg_id FROM users WHERE id = ?', (user_id[0],)).fetchall()[0][0])
         return res_id
 
+def get_obs_id_1(tg_id):
+    with sqlite3.connect('diabetes_tracker.db') as conn:
+        cursor = conn.cursor()
+        cursor.execute('SELECT id FROM users WHERE tg_id = ?', (tg_id,))
+        user = cursor.fetchone()
+        if user:
+            cursor.execute('SELECT tg_id FROM observers WHERE user_id = ?', (user[0],))
+            return cursor.fetchall()
+    return ""
 
 def add_eat(tg_id, name, type, eat, xe):
     with sqlite3.connect('diabetes_tracker.db') as conn:
@@ -168,7 +177,27 @@ def add_eat(tg_id, name, type, eat, xe):
             ''', (user[0], name, type, eat, xe))
             conn.commit()
 
+def add_meal(tg_id, type, xe, date):
+    with sqlite3.connect('diabetes_tracker.db') as conn:
+        cursor = conn.cursor()
+        cursor.execute('SELECT id FROM users WHERE tg_id = ?', (tg_id,))
+        user = cursor.fetchone()
+        if user:
+            cursor.execute('''
+            INSERT INTO meals (user_id, type, xe, date)
+            VALUES (?, ?, ?, ?)
+            ''', (user[0], type, xe, date,))
+            conn.commit()
 
+def get_meal(tg_id):
+    with sqlite3.connect('diabetes_tracker.db') as conn:
+        cursor = conn.cursor()
+        cursor.execute('SELECT id FROM users WHERE tg_id = ?', (tg_id,))
+        user = cursor.fetchone()
+        if user:
+            cursor.execute('SELECT * FROM meals WHERE user_id = ?', (user[0],))
+            return cursor.fetchall()
+    return []
 
 def delete_measurement(tg_id):
     with sqlite3.connect('diabetes_tracker.db') as conn:

@@ -7,18 +7,17 @@ import io
 import requests
 from PIL import Image
 from PIL.ExifTags import TAGS
-
+from aiogram.fsm.storage.memory import MemoryStorage
 
 from config import *
 import aiogram
-from app.handlers import router
-
+from app.handlers import router, storage
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import CommandStart, Command
 from aiogram.types import Message
 
 bot = Bot(token=TOKEN)
-dp = Dispatcher()
+dp = Dispatcher(storage=storage)
 
 async def main():
     dp.include_router(router)
