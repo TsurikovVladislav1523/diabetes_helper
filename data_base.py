@@ -59,7 +59,7 @@ def create_tables():
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     user_id INTEGER,
                     type TEXT,
-                    xe INTEGER,
+                    xe TEXT,
                     date TEXT,
                     FOREIGN KEY(user_id) REFERENCES users(id)
                 )

@@ -3,11 +3,10 @@ import logging
 
 import io
 import os
-
+from statistic import *
 import requests
 from PIL import Image
 from PIL.ExifTags import TAGS
-import matplotlib.pyplot as plt
 from aiogram.fsm.storage.base import StorageKey
 from aiogram.fsm.storage.memory import MemoryStorage
 from data_base import *
@@ -30,8 +29,8 @@ sheduler.start()
 
 registered = get_all_users()
 print(registered)
-sheduler.add_job(send_message_cron, trigger="date", run_date=dt.datetime.now() + dt.timedelta(seconds=5),
-                 kwargs={'bot': bot, "chat_id": 1057505123, "name": "обед", "hours": 20, "minutes": 5, "state": FSMContext(storage=storage, key=StorageKey(bot_id=int(BOT_ID), chat_id=1057505123, user_id=1057505123, thread_id=None, business_connection_id=None, destiny='default'))})
+# sheduler.add_job(send_message_cron, trigger="date", run_date=dt.datetime.now() + dt.timedelta(seconds=5),
+#                  kwargs={'bot': bot, "chat_id": 1057505123, "name": "обед", "hours": 20, "minutes": 5, "state": FSMContext(storage=storage, key=StorageKey(bot_id=int(BOT_ID), chat_id=1057505123, user_id=1057505123, thread_id=None, business_connection_id=None, destiny='default'))})
 
 
 for tg_id, time, name in get_times_with_tg_id():
@@ -120,56 +119,15 @@ async def reg_three(message: Message, state: FSMContext):
 @router.message(Command("state"))
 async def state(message: Message):
     id = message.from_user.id
-    all_photo = get_measurement(id)
-    slovar = {}
-    for ph in all_photo:
-        date = ph[4]
-        if date in slovar:
-            slovar[date].append(float(ph[2]))
-        else:
-            slovar[date] = []
-            slovar[date].append(float(ph[2]))
-    x = []
-    y = []
-    for key in slovar:
-        sp = slovar[key]
-        x.append(key)
-        res = round(sum(sp) / len(sp), 1)
-        y.append(res)
-    # ax = plt.axes()
-    # ax.set_facecolor("dimgray")
-    plt.title("Среднее значение уровня сахара за каждый из дней")  # заголовок
-    plt.xlabel("День")  # ось абсцисс
-    plt.ylabel("Уровень сахара")  # ось ординат
-    plt.grid(True)  # включение отображение сетки
-    plt.minorticks_on()
-    plt.plot(x, y, "b--", marker='o', markersize=4)  # построение графика
-    plt.savefig('images/1.png')
-    graph = FSInputFile("images/1.png")
-    await message.answer_photo(photo=graph)
-    os.remove("images/1.png")
-
-    plt.clf()
-    plt.minorticks_on()
-    plt.bar(x, y, label='Уровень сахара',
-            color='skyblue')  # Параметр label позволяет задать название величины для легенды
-    plt.xlabel('День')
-    plt.ylabel('Уровень сахара')
-    plt.title('Среднее значение уровня сахара за каждый из дней')
-    plt.legend(loc='lower left')
-    for c in range(len(y)):
-        plt.annotate(y[c], xy=(c - 0.25, y[c] - 0.5), color='black')
-    plt.savefig('images/1.png')
-    graph = FSInputFile("images/1.png")
-    await message.answer_photo(photo=graph)
-    os.remove("images/1.png")
-    plt.clf()
-
-    all_photo = get_meal(id)
-    print(all_photo)
-    print(all_photo)
-    print(all_photo)
-    print(all_photo)
+    print(sugar_level(id))
+    for photo in sugar_level(id):
+        ph = FSInputFile(photo)
+        await message.answer_photo(photo=ph)
+        os.remove(photo)
+    for photo in meal_stats(id):
+        ph = FSInputFile(photo)
+        await message.answer_photo(photo=ph)
+        os.remove(photo)
 
 
 @router.message(F.photo)
@@ -459,96 +417,14 @@ async def add_obs(message: Message, state: FSMContext):
         f"Статистика пользователя {id}:",
         reply_markup=kb.ReplyKeyboardRemove())
 
-    all_photo = get_measurement(id)
-    slovar = {}
-    for ph in all_photo:
-        date = ph[4]
-        if date in slovar:
-            slovar[date].append(float(ph[2]))
-        else:
-            slovar[date] = []
-            slovar[date].append(float(ph[2]))
-    x = []
-    y = []
-    for key in slovar:
-        sp = slovar[key]
-        x.append(key)
-        res = round(sum(sp) / len(sp), 1)
-        y.append(res)
-    # ax = plt.axes()
-    # ax.set_facecolor("dimgray")
-    plt.title("Среднее значение уровня сахара за каждый из дней")  # заголовок
-    plt.xlabel("День")  # ось абсцисс
-    plt.ylabel("Уровень сахара")  # ось ординат
-    plt.grid(True)  # включение отображение сетки
-    plt.minorticks_on()
-    plt.plot(x, y, "b--", marker='o', markersize=4)  # построение графика
-    plt.savefig('images/1.png')
-    graph = FSInputFile("images/1.png")
-    await message.answer_photo(photo=graph)
-    os.remove("images/1.png")
-
-    plt.clf()
-    plt.minorticks_on()
-    plt.bar(x, y, label='Уровень сахара',
-            color='skyblue')  # Параметр label позволяет задать название величины для легенды
-    plt.xlabel('День')
-    plt.ylabel('Уровень сахара')
-    plt.title('Среднее значение уровня сахара за каждый из дней')
-    plt.legend(loc='lower left')
-    for c in range(len(y)):
-        plt.annotate(y[c], xy=(c - 0.25, y[c] - 0.5), color='black')
-    plt.savefig('images/1.png')
-    graph = FSInputFile("images/1.png")
-    await message.answer_photo(photo=graph)
-    os.remove("images/1.png")
-    plt.clf()
-
-
-
-    # slovar = {}
-    # for ph in all_photo:
-    #     date = ph[4]
-    #     if date in slovar:
-    #         slovar[date].append(float(ph[2]))
-    #     else:
-    #         slovar[date] = []
-    #         slovar[date].append(float(ph[2]))
-    # x = []
-    # y = []
-    # for key in slovar:
-    #     sp = slovar[key]
-    #     x.append(key)
-    #     res = round(sum(sp) / len(sp), 1)
-    #     y.append(res)
-    # # ax = plt.axes()
-    # # ax.set_facecolor("dimgray")
-    # plt.title("Среднее значение уровня сахара за каждый из дней")  # заголовок
-    # plt.xlabel("День")  # ось абсцисс
-    # plt.ylabel("Уровень сахара")  # ось ординат
-    # plt.grid(True)  # включение отображение сетки
-    # plt.minorticks_on()
-    # plt.plot(x, y, "b--", marker='o', markersize=4)  # построение графика
-    # plt.savefig('images/1.png')
-    # graph = FSInputFile("images/1.png")
-    # await message.answer_photo(photo=graph)
-    # os.remove("images/1.png")
-    #
-    # plt.clf()
-    # plt.minorticks_on()
-    # plt.bar(x, y, label='Уровень сахара',
-    #         color='skyblue')  # Параметр label позволяет задать название величины для легенды
-    # plt.xlabel('День')
-    # plt.ylabel('Уровень сахара')
-    # plt.title('Среднее значение уровня сахара за каждый из дней')
-    # plt.legend(loc='lower left')
-    # for c in range(len(y)):
-    #     plt.annotate(y[c], xy=(c - 0.25, y[c] - 0.5), color='black')
-    # plt.savefig('images/1.png')
-    # graph = FSInputFile("images/1.png")
-    # await message.answer_photo(photo=graph)
-    # os.remove("images/1.png")
-    # plt.clf()
+    for photo in sugar_level(id):
+        ph = FSInputFile(photo)
+        await message.answer_photo(photo=ph)
+        os.remove(photo)
+    for photo in meal_stats(id):
+        ph = FSInputFile(photo)
+        await message.answer_photo(photo=ph)
+        os.remove(photo)
 
     await state.clear()
 
