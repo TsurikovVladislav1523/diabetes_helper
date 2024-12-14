@@ -23,7 +23,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from statistic import *
 from config import *
 import aiogram
-from app.handlers import router, storage, send_code
+from app.handlers import router, storage, send_code, create_sheduler_start
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import CommandStart, Command
 from aiogram.types import Message
@@ -119,6 +119,7 @@ if __name__ == "__main__":
     flask_thread = threading.Thread(target=run_flask)
     flask_thread.start()
     logging.basicConfig(level=logging.INFO)
+    create_sheduler_start()
     try:
         loop = asyncio.get_event_loop()
         loop.run_until_complete(main())

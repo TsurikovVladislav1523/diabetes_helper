@@ -29,10 +29,10 @@ router = Router()
 sheduler.start()
 
 registered = get_all_users()
-sheduler.add_job(send_message_cron, trigger="date", run_date=dt.datetime.now() + dt.timedelta(seconds=5),
-                 kwargs={'bot': bot, "chat_id": 1057505123, "name": "обед", "hours": 20, "minutes": 5, "state": FSMContext(storage=storage, key=StorageKey(bot_id=int(BOT_ID), chat_id=1057505123, user_id=1057505123, thread_id=None, business_connection_id=None, destiny='default'))})
+# sheduler.add_job(send_message_cron, trigger="date", run_date=dt.datetime.now() + dt.timedelta(seconds=5),
+#                  kwargs={'bot': bot, "chat_id": 1057505123, "name": "обед", "hours": 20, "minutes": 5, "state": FSMContext(storage=storage, key=StorageKey(bot_id=int(BOT_ID), chat_id=1057505123, user_id=1057505123, thread_id=None, business_connection_id=None, destiny='default'))})
 
-def create_sheduler_stert():
+def create_sheduler_start():
     for tg_id, time, name in get_times_with_tg_id():
         hours, minutes = map(int, time.split(":"))
         # print(tg_id, minutes, hours)
@@ -418,21 +418,29 @@ async def add_obs(message: Message, state: FSMContext):
     obs_id = message.text
     id = message.from_user.id
     add_oserver(id, obs_id)
+    await message.answer('Наблюдатель успешно добавлен')
     await state.clear()
 
 
 class Ward(StatesGroup):
     id = State()
 
+class Ward_im(StatesGroup):
+    id = State()
+    printing = State()
 
 @router.message(Command("ward_stat"))
 async def add_obs(message: Message, state: FSMContext):
     id = message.from_user.id
     users = get_obs_id(id)
-    await message.answer(
-        f"Выберете id подопечного, у которого хотите посмотреть статистику",
-        reply_markup=await kb.wards(users))
-    await state.set_state(Ward.id)
+    if not users:
+        await message.answer(
+            f"У вас нет подопечных")
+    else:
+        await message.answer(
+            f"Выберете id подопечного, у которого хотите посмотреть статистику",
+            reply_markup=await kb.wards(users))
+        await state.set_state(Ward.id)
 
 
 @router.message(Ward.id)
@@ -455,7 +463,53 @@ async def add_obs(message: Message, state: FSMContext):
 
 @router.message(Command("ward_image"))
 async def image(message: Message, state: FSMContext):
-    pass
+    id = message.from_user.id
+    users = get_obs_id(id)
+    if not users:
+        await message.answer(
+            f"У вас нет подопечных")
+    else:
+        await message.answer(
+            f"Выберете id подопечного, у которого хотите проверить данные",
+            reply_markup=await kb.wards(users))
+        await state.set_state(Ward_im.id)
+
+@router.message(Ward_im.id)
+async def image(message: Message, state: FSMContext):
+    id = message.text
+    print(get_measurement(id))
+    times = {}
+    for im in get_measurement(id):
+        photo = im[3]
+        data1 = im[4]
+        data = str(im[4]).split('.')
+        t_n = dt.datetime.now()
+        t_d = t_d = t_n - dt.datetime.strptime(f"{t_n.year}:{data[1]}:{data[0]} {t_n.hour}:{t_n.minute}", '%Y:%m:%d %H:%M')
+        if t_d.days<=7:
+            if data1 not in times:
+                times[data1] = []
+                times[data1].append(photo)
+            else:
+                times[data1].append(photo)
+    if times:
+        await state.update_data(im=times)
+        await state.set_state(Ward_im.printing)
+        await message.answer(
+            f"Выберете дату, в которой хотите проверить данные",
+            reply_markup=await kb.wards(times.keys()))
+    else:
+        await message.answer("Подопечный не отправлял данные в течение 7 дней")
+@router.message(Ward_im.printing)
+async def image(message: Message, state: FSMContext):
+    times = await state.get_data()
+
+    times = times["im"]
+    print(times)
+    time = message.text
+    for photo in times[time]:
+
+        await message.answer_document(document=photo, reply_markup=kb.ReplyKeyboardRemove())
+    await state.clear()
 '''Конец блока'''
 
 '''Блок с шедулером'''
