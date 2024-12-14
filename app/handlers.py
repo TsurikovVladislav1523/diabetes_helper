@@ -29,6 +29,8 @@ router = Router()
 sheduler.start()
 
 registered = get_all_users()
+
+
 # sheduler.add_job(send_message_cron, trigger="date", run_date=dt.datetime.now() + dt.timedelta(seconds=5),
 #                  kwargs={'bot': bot, "chat_id": 1057505123, "name": "обед", "hours": 20, "minutes": 5, "state": FSMContext(storage=storage, key=StorageKey(bot_id=int(BOT_ID), chat_id=1057505123, user_id=1057505123, thread_id=None, business_connection_id=None, destiny='default'))})
 
@@ -70,7 +72,8 @@ async def cmd_start(message: Message, state: FSMContext):
 
     if message.from_user.id not in registered:
         await message.answer(
-            "Вы не зарегистрированы в системе. Пожалуйста введите комаду /reg для прохождения регистрации", reply_markup=kb.ReplyKeyboardRemove())
+            "Вы не зарегистрированы в системе. Пожалуйста введите комаду /reg для прохождения регистрации",
+            reply_markup=kb.ReplyKeyboardRemove())
 
 
 class Photo(StatesGroup):
@@ -357,7 +360,7 @@ async def reg_five(message: Message, state: FSMContext):
     await bot.edit_message_caption(chat_id=msg[1], message_id=msg[0],
                                    caption="Введите время Ваших приемов пищи на отдельных строках в формате: {ЧЧ:ММ [пробел дефис пробел] название приема пищи}")
     await message.answer_photo(photo=format_img,
-        caption='Введите время Ваших приемов пищи на отдельных строках в формате: {ЧЧ:ММ [пробел дефис пробел] название приема пищи}')
+                               caption='Введите время Ваших приемов пищи на отдельных строках в формате: {ЧЧ:ММ [пробел дефис пробел] название приема пищи}')
 
 
 @router.message(Reg.meals)
@@ -425,9 +428,11 @@ async def add_obs(message: Message, state: FSMContext):
 class Ward(StatesGroup):
     id = State()
 
+
 class Ward_im(StatesGroup):
     id = State()
     printing = State()
+
 
 @router.message(Command("ward_stat"))
 async def add_obs(message: Message, state: FSMContext):
@@ -461,6 +466,7 @@ async def add_obs(message: Message, state: FSMContext):
 
     await state.clear()
 
+
 @router.message(Command("ward_image"))
 async def image(message: Message, state: FSMContext):
     id = message.from_user.id
@@ -474,6 +480,7 @@ async def image(message: Message, state: FSMContext):
             reply_markup=await kb.wards(users))
         await state.set_state(Ward_im.id)
 
+
 @router.message(Ward_im.id)
 async def image(message: Message, state: FSMContext):
     id = message.text
@@ -484,8 +491,9 @@ async def image(message: Message, state: FSMContext):
         data1 = im[4]
         data = str(im[4]).split('.')
         t_n = dt.datetime.now()
-        t_d = t_d = t_n - dt.datetime.strptime(f"{t_n.year}:{data[1]}:{data[0]} {t_n.hour}:{t_n.minute}", '%Y:%m:%d %H:%M')
-        if t_d.days<=7:
+        t_d = t_d = t_n - dt.datetime.strptime(f"{t_n.year}:{data[1]}:{data[0]} {t_n.hour}:{t_n.minute}",
+                                               '%Y:%m:%d %H:%M')
+        if t_d.days <= 7:
             if data1 not in times:
                 times[data1] = []
                 times[data1].append(photo)
@@ -499,6 +507,8 @@ async def image(message: Message, state: FSMContext):
             reply_markup=await kb.wards(times.keys()))
     else:
         await message.answer("Подопечный не отправлял данные в течение 7 дней")
+
+
 @router.message(Ward_im.printing)
 async def image(message: Message, state: FSMContext):
     times = await state.get_data()
@@ -507,9 +517,10 @@ async def image(message: Message, state: FSMContext):
     print(times)
     time = message.text
     for photo in times[time]:
-
         await message.answer_document(document=photo, reply_markup=kb.ReplyKeyboardRemove())
     await state.clear()
+
+
 '''Конец блока'''
 
 '''Блок с шедулером'''
