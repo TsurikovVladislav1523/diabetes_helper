@@ -3,6 +3,8 @@ import logging
 
 import io
 import os
+import re
+
 from statistic import *
 import requests
 from PIL import Image
@@ -29,10 +31,10 @@ router = Router()
 sheduler.start()
 
 registered = get_all_users()
-# sheduler.add_job(send_message_cron, trigger="date", run_date=dt.datetime.now() + dt.timedelta(seconds=5),
-#                  kwargs={'bot': bot, "chat_id": 1057505123, "name": "обед", "hours": 20, "minutes": 5, "state": FSMContext(storage=storage, key=StorageKey(bot_id=int(BOT_ID), chat_id=1057505123, user_id=1057505123, thread_id=None, business_connection_id=None, destiny='default'))})
+#sheduler.add_job(send_message_cron, trigger="date", run_date=dt.datetime.now() + dt.timedelta(seconds=5),
+#                 kwargs={'bot': bot, "chat_id": 1057505123, "name": "обед", "hours": 20, "minutes": 5, "state": FSMContext(storage=storage, key=StorageKey(bot_id=int(BOT_ID), chat_id=1057505123, user_id=1057505123, thread_id=None, business_connection_id=None, destiny='default'))})
 
-def create_sheduler_start():
+def create_sheduler_stert():
     for tg_id, time, name in get_times_with_tg_id():
         hours, minutes = map(int, time.split(":"))
         # print(tg_id, minutes, hours)
@@ -70,7 +72,7 @@ async def cmd_start(message: Message, state: FSMContext):
 
     if message.from_user.id not in registered:
         await message.answer(
-            "Вы не зарегистрированы в системе. Пожалуйста введите комаду /reg для прохождения регистрации", reply_markup=kb.ReplyKeyboardRemove())
+            "Вы не зарегистрированы в системе. Пожалуйста введите комаду /reg для прохождения регистрации")
 
 
 class Photo(StatesGroup):
@@ -190,12 +192,14 @@ async def change_two(callback: CallbackQuery, state: FSMContext):
 @router.message(Change.height)
 async def reg_three(message: Message, state: FSMContext):
     txt = message.text
-    id = message.from_user.id
-    params = get_user(id)
-    await state.clear()
-    if txt != "НЕТ":
-        update_user_h(id, txt)
-
+    if await check_height_input(message):
+        id = message.from_user.id
+        params = get_user(id)
+        await state.clear()
+        if txt != "НЕТ":
+            update_user_h(id, txt)
+    else:
+        await send_try_again_message(message)
 
 @router.callback_query(F.data == 'weight')
 async def change_two(callback: CallbackQuery, state: FSMContext):
@@ -209,11 +213,14 @@ async def change_two(callback: CallbackQuery, state: FSMContext):
 @router.message(Change.weight)
 async def reg_three(message: Message, state: FSMContext):
     txt = message.text
-    id = message.from_user.id
-    params = get_user(id)
-    await state.clear()
-    if txt != "НЕТ":
-        update_user_w(id, txt)
+    if await check_height_input(message):
+        id = message.from_user.id
+        params = get_user(id)
+        await state.clear()
+        if txt != "НЕТ":
+            update_user_w(id, txt)
+    else:
+        await send_try_again_message(message)
 
 
 class Menu(StatesGroup):
@@ -246,58 +253,68 @@ async def reg_three(message: Message, state: FSMContext):
 @router.message(Menu.salats)
 async def reg_three(message: Message, state: FSMContext):
     id = message.from_user.id
-    text = message.text.split("\n")
-    type = await state.get_data()
-    type = type["type"]
-    for i in text:
-        name, xe = i.split(" - ")
-        add_eat(id, name, "drinks", type, xe)
-    await message.answer(
-        f"Введите салаты, которые вы едите в этот прием пиши в формате \n Салат1 [пробел дефис пробел] Кол-во ХЕ \n Салат2 [пробел дефис пробел] Кол-во ХЕ")
-    await state.set_state(Menu.soups)
-
+    if await check_food_input(message):
+        text = message.text.split("\n")
+        type = await state.get_data()
+        type = type["type"]
+        for i in text:
+            name, xe = i.split(" - ")
+            add_eat(id, name, "drinks", type, xe)
+        await message.answer(
+            f"Введите салаты, которые вы едите в этот прием пиши в формате \n Салат1 [пробел дефис пробел] Кол-во ХЕ \n Салат2 [пробел дефис пробел] Кол-во ХЕ")
+        await state.set_state(Menu.soups)
+    else:
+        await send_try_again_message(message)
 
 @router.message(Menu.soups)
 async def reg_three(message: Message, state: FSMContext):
     id = message.from_user.id
-    text = message.text.split("\n")
-    type = await state.get_data()
-    type = type["type"]
-    for i in text:
-        name, xe = i.split(" - ")
-        add_eat(id, name, "salats", type, xe)
-    await message.answer(
-        f"Введите супы или каши, которые вы едите в этот прием пиши в формате \n Суп1 [пробел дефис пробел] Кол-во ХЕ \n Каша2 [пробел дефис пробел] Кол-во ХЕ")
-    await state.set_state(Menu.main)
+    if await check_food_input(message):
+        text = message.text.split("\n")
+        type = await state.get_data()
+        type = type["type"]
+        for i in text:
+            name, xe = i.split(" - ")
+            add_eat(id, name, "salats", type, xe)
+        await message.answer(
+            f"Введите супы или каши, которые вы едите в этот прием пиши в формате \n Суп1 [пробел дефис пробел] Кол-во ХЕ \n Каша2 [пробел дефис пробел] Кол-во ХЕ")
+        await state.set_state(Menu.main)
+    else:
+        await send_try_again_message(message)
 
 
 @router.message(Menu.main)
 async def reg_three(message: Message, state: FSMContext):
     id = message.from_user.id
-    text = message.text.split("\n")
-    type = await state.get_data()
-    type = type["type"]
-    for i in text:
-        name, xe = i.split(" - ")
-        add_eat(id, name, "soups", type, xe)
-    await message.answer(
-        f"Введите основные блюда, которые вы едите в этот прием пиши в формате \n Блюдо1 [пробел дефис пробел] Кол-во ХЕ \n Блюдo2 [пробел дефис пробел] Кол-во ХЕ")
-    await state.set_state(Menu.final)
+    if await check_food_input(message):
+        text = message.text.split("\n")
+        type = await state.get_data()
+        type = type["type"]
+        for i in text:
+            name, xe = i.split(" - ")
+            add_eat(id, name, "soups", type, xe)
+        await message.answer(
+            f"Введите основные блюда, которые вы едите в этот прием пиши в формате \n Блюдо1 [пробел дефис пробел] Кол-во ХЕ \n Блюдo2 [пробел дефис пробел] Кол-во ХЕ")
+        await state.set_state(Menu.final)
+    else:
+        await send_try_again_message(message)
 
 
 @router.message(Menu.final)
 async def reg_three(message: Message, state: FSMContext):
     id = message.from_user.id
-    text = message.text.split("\n")
-    type = await state.get_data()
-    type = type["type"]
-    for i in text:
-        name, xe = i.split(" - ")
-        add_eat(id, name, "main", type, xe)
-    await message.answer(
-        f"Составление рациона завершено")
-    await state.clear()
-
+    if await check_food_input(message):
+        text = message.text.split("\n")
+        type = await state.get_data()
+        type = type["type"]
+        for i in text:
+            name, xe = i.split(" - ")
+            add_eat(id, name, "main", type, xe)
+        await message.answer(
+            f"Составление рациона завершено")
+        await state.clear()
+    else:
+        await send_try_again_message(message)
 
 @router.message(Command('reg'))
 async def reg_one(message: Message, state: FSMContext):
@@ -329,71 +346,81 @@ async def reg_two(callback: CallbackQuery, state: FSMContext):
 
 @router.message(Reg.height)
 async def reg_three(message: Message, state: FSMContext):
-    await state.update_data(height=message.text)
-    await state.set_state(Reg.weight)
-    msg = await state.get_data()
-    msg = msg["msg_id"]
-    await bot.edit_message_caption(chat_id=msg[1], message_id=msg[0], caption='Введите Ваш вес')
-    await message.answer(text="Введите Bаш вес")
-    # await message.edit_caption(caption='Введите Ваш вес')
+    if await check_height_input(message):
+        await state.update_data(height=message.text)
+        await state.set_state(Reg.weight)
+        msg = await state.get_data()
+        msg = msg["msg_id"]
+        await bot.edit_message_caption(chat_id=msg[1], message_id=msg[0], caption='Введите Ваш вес')
+        await message.answer(text="Введите Bаш вес")
+        # await message.edit_caption(caption='Введите Ваш вес')
+    else:
+        await send_try_again_message(message)
 
 
 @router.message(Reg.weight)
 async def reg_four(message: Message, state: FSMContext):
-    await state.update_data(weight=message.text)
-    await state.set_state(Reg.age)
-    msg = await state.get_data()
-    msg = msg["msg_id"]
-    await bot.edit_message_caption(chat_id=msg[1], message_id=msg[0], caption='Введите Ваш возраст')
-    await message.answer(text="Введите Bаш возраст")
-
+    if await check_weight_input(message):
+        await state.update_data(weight=message.text)
+        await state.set_state(Reg.age)
+        msg = await state.get_data()
+        msg = msg["msg_id"]
+        await bot.edit_message_caption(chat_id=msg[1], message_id=msg[0], caption='Введите Ваш возраст')
+        await message.answer(text="Введите Bаш возраст")
+    else:
+        await send_try_again_message(message)
 
 @router.message(Reg.age)
 async def reg_five(message: Message, state: FSMContext):
-    await state.update_data(age=message.text)
-    await state.set_state(Reg.meals)
-    msg = await state.get_data()
-    msg = msg["msg_id"]
-    await bot.edit_message_caption(chat_id=msg[1], message_id=msg[0],
-                                   caption="Введите время Ваших приемов пищи на отдельных строках в формате: {ЧЧ:ММ [пробел дефис пробел] название приема пищи}")
-    await message.answer_photo(photo=format_img,
-        caption='Введите время Ваших приемов пищи на отдельных строках в формате: {ЧЧ:ММ [пробел дефис пробел] название приема пищи}')
+    if await check_age_input(message):
+        await state.update_data(age=message.text)
+        await state.set_state(Reg.meals)
+        msg = await state.get_data()
+        msg = msg["msg_id"]
+        await bot.edit_message_caption(chat_id=msg[1], message_id=msg[0],
+                                       caption="Введите время Ваших приемов пищи на отдельных строках в формате: {ЧЧ:ММ [пробел дефис пробел] название приема пищи}")
+        await message.answer(
+            text='Введите время Ваших приемов пищи на отдельных строках в формате: {ЧЧ:ММ [пробел дефис пробел] название приема пищи}')
+    else:
+        await send_try_again_message(message)
 
 
 @router.message(Reg.meals)
 async def reg_five(message: Message, state: FSMContext):
-    await state.update_data(meals=message.text.split("\n"))
-    id = message.from_user.id
-    date_state = await state.get_data()
-    print(date_state)
-    create_user(id, date_state["gender"], date_state["height"], date_state["weight"],
-                date_state["age"])
-    for i in date_state["meals"]:
-        time, name = i.split(" - ")
-        add_time(id, time, name)
-        hours, minutes = map(int, time.split(":"))
-        # print(tg_id, minutes, hours)
-        t_n = dt.datetime.now()
-        t_d = dt.datetime.strptime(f"{t_n.year}:{t_n.month}:{t_n.day} {hours}:{minutes}", '%Y:%m:%d %H:%M') - t_n
-        print(t_d)
-        if t_n.hour * 100 + t_n.minute > hours * 100 + minutes:
-            t_n = dt.datetime.now() + dt.timedelta(days=1)
-            t_d = t_n - dt.datetime.strptime(
-                f"{dt.datetime.now().year}:{dt.datetime.now().month}:{dt.datetime.now().day} {hours}:{minutes}",
-                '%Y:%m:%d %H:%M')
+    if await check_meal_input(message):
+        await state.update_data(meals=message.text.split("\n"))
+        id = message.from_user.id
+        date_state = await state.get_data()
+        print(date_state)
+        create_user(id, date_state["gender"], date_state["height"], date_state["weight"],
+                    date_state["age"])
+        for i in date_state["meals"]:
+            time, name = i.split(" - ")
+            add_time(id, time, name)
+            hours, minutes = map(int, time.split(":"))
+            # print(tg_id, minutes, hours)
+            t_n = dt.datetime.now()
+            t_d = dt.datetime.strptime(f"{t_n.year}:{t_n.month}:{t_n.day} {hours}:{minutes}", '%Y:%m:%d %H:%M') - t_n
             print(t_d)
-        sheduler.add_job(send_message_cron, trigger="date", run_date=t_d + dt.datetime.now(),
-                         kwargs={'bot': bot, "chat_id": id, "name": name, "hours": hours, "minutes": minutes,
-                                 "state": FSMContext(storage=storage,
-                                                     key=StorageKey(bot_id=int(BOT_ID), chat_id=id, user_id=id,
-                                                                    thread_id=None, business_connection_id=None,
-                                                                    destiny='default'))})
-    registered.append(id)
-    noise_sl[id] = 0
-    print(registered)
-    await message.answer('Спасибо, регистрация завершена.')
-    await state.clear()
-
+            if t_n.hour * 100 + t_n.minute > hours * 100 + minutes:
+                t_n = dt.datetime.now() + dt.timedelta(days=1)
+                t_d = t_n - dt.datetime.strptime(
+                    f"{dt.datetime.now().year}:{dt.datetime.now().month}:{dt.datetime.now().day} {hours}:{minutes}",
+                    '%Y:%m:%d %H:%M')
+                print(t_d)
+            sheduler.add_job(send_message_cron, trigger="date", run_date=t_d + dt.datetime.now(),
+                             kwargs={'bot': bot, "chat_id": id, "name": name, "hours": hours, "minutes": minutes,
+                                     "state": FSMContext(storage=storage,
+                                                         key=StorageKey(bot_id=int(BOT_ID), chat_id=id, user_id=id,
+                                                                        thread_id=None, business_connection_id=None,
+                                                                        destiny='default'))})
+        registered.append(id)
+        noise_sl[id] = 0
+        print(registered)
+        await message.answer('Спасибо, регистрация завершена.')
+        await state.clear()
+    else:
+        await send_try_again_message(message)
 
 async def send_code(code, telegram_id):
     await bot.send_message(chat_id=telegram_id, text=f"Ваш код подтверждения: {code}")
@@ -418,29 +445,21 @@ async def add_obs(message: Message, state: FSMContext):
     obs_id = message.text
     id = message.from_user.id
     add_oserver(id, obs_id)
-    await message.answer('Наблюдатель успешно добавлен')
     await state.clear()
 
 
 class Ward(StatesGroup):
     id = State()
 
-class Ward_im(StatesGroup):
-    id = State()
-    printing = State()
 
 @router.message(Command("ward_stat"))
 async def add_obs(message: Message, state: FSMContext):
     id = message.from_user.id
     users = get_obs_id(id)
-    if not users:
-        await message.answer(
-            f"У вас нет подопечных")
-    else:
-        await message.answer(
-            f"Выберете id подопечного, у которого хотите посмотреть статистику",
-            reply_markup=await kb.wards(users))
-        await state.set_state(Ward.id)
+    await message.answer(
+        f"Выберете id подопечного, у которого хотите посмотреть статистику",
+        reply_markup=await kb.wards(users))
+    await state.set_state(Ward.id)
 
 
 @router.message(Ward.id)
@@ -463,53 +482,7 @@ async def add_obs(message: Message, state: FSMContext):
 
 @router.message(Command("ward_image"))
 async def image(message: Message, state: FSMContext):
-    id = message.from_user.id
-    users = get_obs_id(id)
-    if not users:
-        await message.answer(
-            f"У вас нет подопечных")
-    else:
-        await message.answer(
-            f"Выберете id подопечного, у которого хотите проверить данные",
-            reply_markup=await kb.wards(users))
-        await state.set_state(Ward_im.id)
-
-@router.message(Ward_im.id)
-async def image(message: Message, state: FSMContext):
-    id = message.text
-    print(get_measurement(id))
-    times = {}
-    for im in get_measurement(id):
-        photo = im[3]
-        data1 = im[4]
-        data = str(im[4]).split('.')
-        t_n = dt.datetime.now()
-        t_d = t_d = t_n - dt.datetime.strptime(f"{t_n.year}:{data[1]}:{data[0]} {t_n.hour}:{t_n.minute}", '%Y:%m:%d %H:%M')
-        if t_d.days<=7:
-            if data1 not in times:
-                times[data1] = []
-                times[data1].append(photo)
-            else:
-                times[data1].append(photo)
-    if times:
-        await state.update_data(im=times)
-        await state.set_state(Ward_im.printing)
-        await message.answer(
-            f"Выберете дату, в которой хотите проверить данные",
-            reply_markup=await kb.wards(times.keys()))
-    else:
-        await message.answer("Подопечный не отправлял данные в течение 7 дней")
-@router.message(Ward_im.printing)
-async def image(message: Message, state: FSMContext):
-    times = await state.get_data()
-
-    times = times["im"]
-    print(times)
-    time = message.text
-    for photo in times[time]:
-
-        await message.answer_document(document=photo, reply_markup=kb.ReplyKeyboardRemove())
-    await state.clear()
+    pass
 '''Конец блока'''
 
 '''Блок с шедулером'''
@@ -540,3 +513,136 @@ async def reg_data(message: Message):
     id = message.from_user.id
     print(get_user(id))
     print(get_times(id))
+
+
+'''Проверки ввода'''
+
+
+async def send_try_again_message(message: Message):
+    await message.answer('Неверные данные, попробуйте ввести снова')
+
+
+async def check_height_input(message: Message):
+    txt = message.text
+    if txt == 'НЕТ':
+        return True
+    try:
+        number = int(txt)
+        if 10 < number < 252:
+            return True
+        else:
+            return False
+    except:
+        return False
+
+
+async def check_weight_input(message: Message):
+    txt = message.text
+    if txt == 'НЕТ':
+        return True
+    try:
+        number = int(txt)
+        if 20 < number < 646:
+            return True
+        else:
+            return False
+    except:
+        return False
+
+
+async def check_age_input(message: Message):
+    txt = message.text
+    if txt == 'НЕТ':
+        return True
+    try:
+        number = int(txt)
+        if 3 < number < 150:
+            return True
+        else:
+            return False
+    except:
+        return False
+
+
+async def check_food_input(message: Message):
+    pattern = r'^[A-Za-zА-Яа-яёЁ\s]+ - \d+$'
+
+    txt = message.text
+    lines = txt.strip().split('\n')
+
+    for line in lines:
+        if not bool(re.match(pattern, line)):
+            return False
+    return True
+
+
+async def check_meal_input(message: Message):
+    # Регулярное выражение для проверки формата времени и приема пищи
+    pattern = r'^(\d{2}):(\d{2}) - .+$'
+
+    txt = message.text.strip()  # Убираем лишние пробелы в начале и конце
+    lines = txt.split('\n')  # Разделяем на строки по символу новой строки
+
+    # Проходим по каждой строке и проверяем ее
+    for line in lines:
+        # Убираем лишние пробелы по краям каждой строки
+        line = line.strip()
+
+        # Проверка на наличие дополнительной временной метки в одной строке
+        if line.count(' - ') > 1:
+            return False
+
+        # Проверка строки на соответствие регулярному выражению
+        match = re.match(pattern, line)
+        if not match:
+            return False
+
+        hours = int(match.group(1))  # Часы
+        minutes = int(match.group(2))  # Минуты
+
+        # Проверка корректности времени
+        if not (0 <= hours <= 23 and 0 <= minutes <= 59):
+            return False
+
+        # Получаем название приема пищи после дефиса
+        meal_name = line.split(' - ')[1].strip()
+
+        # Проверка, что название не пустое
+        if not meal_name:
+            return False
+
+        # Проверка на наличие символов новой строки в названии
+        if '\n' in meal_name or '\r' in meal_name:
+            return False
+
+    return True
+
+
+
+# async def check_meal_input(message: Message):
+#     pattern = r'^(\d{2}):(\d{2}) - .+$'
+#
+#     txt = message.text
+#     lines = txt.strip().split('\n')
+#
+#     for line in lines:
+#         if '/n' in line:
+#             return False
+#         match = re.match(pattern, line)
+#         if not match:
+#             return False
+#
+#         hours = int(match.group(1))
+#         minutes = int(match.group(2))
+#
+#         if not (0 <= hours <= 23 and 0 <= minutes <= 59):
+#             return False
+#
+#     print(lines)
+#     return True
+
+
+async def check_id_input(message: Message):
+    text = message.text
+    return len(text) == 10 and text.isdigit()
+
