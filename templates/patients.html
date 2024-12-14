@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Наблюдаемые пациенты</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #e6f7ff; /* Голубой фон */
+            color: #003366; /* Темно-синий текст */
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Добавляем фон с единорогами */
+        .unicorn-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Чтобы фон не перекрывал элементы на странице */
+        }
+
+        .container {
+            position: relative;
+            text-align: center;
+            padding: 70px;
+            border: 2px solid #b3e0ff;
+            border-radius: 10px;
+            background-color: #ffffff; /* Белый фон для контента */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            width: 35%;
+            max-width: 500px;
+            z-index: 1;
+        }
+
+        .button {
+            display: block;
+            margin: 10px auto;
+            padding: 15px 100px;
+            font-size: 16px;
+            color: #ffffff;
+            background-color: #007acc; /* Синий цвет кнопки */
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .button:hover {
+            background-color: #005999; /* Более тёмный синий при наведении */
+        }
+
+        /* Мобильная оптимизация */
+        @media (max-width: 768px) {
+            .container {
+                width: 90%;
+                padding: 40px;
+            }
+
+            .button {
+                padding: 8px 40px;
+                font-size: 14px;
+            }
+        }
+
+        /* Для очень маленьких экранов */
+        @media (max-width: 480px) {
+            .container {
+                width: 95%;
+                padding: 30px;
+            }
+
+            .button {
+                padding: 6px 30px;
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="unicorn-background"></div>
+    <div class="container">
+        <h1>Наблюдаемые пациенты</h1>
+        <!-- Генерация кнопок -->
+        {% for button in buttons %}
+            <form action="/action/{{ button.id }}" method="POST">
+                <button class="button" type="submit">{{ button.text }}</button>
+            </form>
+        {% endfor %}
+    </div>
+
+    <script>
+        // Функция для случайного размещения единорогов на фоне с минимальным расстоянием
+        function generateUnicorns() {
+            const background = document.querySelector('.unicorn-background');
+            const unicornWidth = 50; // Ширина и высота одного единорога
+            const minDistance = 120; // Минимальное расстояние между единорогами
+            const maxUnicorns = 20; // Количество единорогов
+            let unicorns = []; // Массив для хранения координат единорогов
+
+            function isValidPosition(x, y) {
+                for (let i = 0; i < unicorns.length; i++) {
+                    const unicorn = unicorns[i];
+                    const dx = unicorn.x - x;
+                    const dy = unicorn.y - y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    if (distance < minDistance) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+
+            for (let i = 0; i < maxUnicorns; i++) {
+                let unicorn = document.createElement('div');
+                unicorn.style.position = 'absolute';
+                unicorn.style.width = unicornWidth + 'px';
+                unicorn.style.height = unicornWidth + 'px';
+                unicorn.style.backgroundImage = `url('{{ url_for("static", filename="images/unicorn-background.png") }}')`;
+                unicorn.style.backgroundSize = 'cover';
+                unicorn.style.transform = `rotate(${Math.random() * 360}deg)`;
+
+                let randomX, randomY;
+
+                // Генерация случайных координат для единорога с учётом минимального расстояния
+                do {
+                    randomX = Math.random() * (window.innerWidth - unicornWidth);
+                    randomY = Math.random() * (window.innerHeight - unicornWidth);
+                } while (!isValidPosition(randomX, randomY));
+
+                unicorn.style.top = randomY + 'px';
+                unicorn.style.left = randomX + 'px';
+
+                // Добавление координат единорога в массив
+                unicorns.push({ x: randomX, y: randomY });
+
+                background.appendChild(unicorn);
+            }
+        }
+
+        window.onload = generateUnicorns;
+        window.onresize = generateUnicorns;
+    </script>
+</body>
+</html>

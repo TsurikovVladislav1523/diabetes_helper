@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+
+
+
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Регистрация</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #e6f7ff; /* Голубой фон */
+            color: #003366; /* Темно-синий текст */
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .container {
+            text-align: center;
+            padding: 70px;
+            border: 2px solid #b3e0ff;
+            border-radius: 10px;
+            background-color: #ffffff; /* Белый фон для контента */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        .input-field {
+            display: block;
+            margin: 15px auto;
+            padding: 20px;
+            width: 80%;
+            max-width: 300px;
+            font-size: 16px;
+            border: 1px solid #b3e0ff;
+            border-radius: 5px;
+        }
+        .button {
+            display: block;
+            margin: 20px auto;
+            padding: 10px 50px;
+            font-size: 16px;
+            color: #ffffff;
+            background-color: #007acc;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .button:hover {
+            background-color: #005999;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Регистрация</h1>
+        <form action="/register" method="POST">
+            <input class="input-field" type="text" name="telegram_id" placeholder="Введите ваш Telegram ID" required>
+            <button class="button" type="submit">Отправить</button>
+        </form>
+    </div>
+</body>
+</html>
+

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Регистрация</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #e6f7ff;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            position: relative;
+            overflow: hidden; /* Чтобы единороги не выходили за пределы экрана */
+        }
+
+        .container {
+            text-align: center;
+            padding: 70px;
+            border: 2px solid #b3e0ff;
+            border-radius: 10px;
+            background-color: #ffffff;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            z-index: 10;
+            width: 35%; /* Устанавливаем ширину контейнера в 35% от ширины экрана */
+            max-width: 500px; /* Максимальная ширина для более крупных экранов */
+        }
+
+        .input-field {
+            display: block;
+            margin: 15px auto;
+            padding: 20px;
+            width: 100%; /* Полная ширина относительно контейнера */
+            font-size: 16px;
+            border: 1px solid #b3e0ff;
+            border-radius: 5px;
+        }
+
+        .button {
+            display: block;
+            margin: 20px auto;
+            padding: 10px 50px;
+            font-size: 16px;
+            color: #ffffff;
+            background-color: #007acc;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .button:hover {
+            background-color: #005999;
+        }
+
+        .unicorn {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background-image: url('{{ url_for('static', filename='images/unicorn-background.png') }}');
+            background-size: cover;
+            background-position: center;
+            border-radius: 50%;
+        }
+
+        /* Мобильная оптимизация */
+        @media (max-width: 768px) {
+            .container {
+                width: 90%; /* Уменьшаем ширину контейнера до 90% для мобильных устройств */
+                padding: 40px;
+            }
+
+            .input-field {
+                font-size: 14px; /* Уменьшаем размер шрифта для мобильных устройств */
+                padding: 15px;
+            }
+
+            .button {
+                padding: 8px 40px;
+                font-size: 14px;
+            }
+        }
+
+        /* Для очень маленьких экранов */
+        @media (max-width: 480px) {
+            .container {
+                width: 95%; /* Контейнер будет занимать почти всю ширину экрана */
+                padding: 30px;
+            }
+
+            .input-field {
+                font-size: 12px; /* Ещё меньше шрифт */
+                padding: 10px;
+            }
+
+            .button {
+                padding: 6px 30px;
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Регистрация</h1>
+        <form action="/register" method="POST">
+            <input class="input-field" type="text" name="telegram_id" placeholder="Введите ваш Telegram ID" required>
+            <button class="button" type="submit">Отправить</button>
+        </form>
+    </div>
+
+    <script>
+        var unicorns = [];
+
+        function isValidPosition(x, y, minDistance) {
+            for (var i = 0; i < unicorns.length; i++) {
+                var unicorn = unicorns[i];
+                var dx = unicorn.x - x;
+                var dy = unicorn.y - y;
+                var distance = Math.sqrt(dx * dx + dy * dy);
+                if (distance < minDistance) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        function createRandomUnicorn() {
+            var unicorn = document.createElement('div');
+            unicorn.classList.add('unicorn');
+
+            var minDistance = 120;
+            var randomX, randomY, randomAngle;
+
+            do {
+                randomX = Math.random() * window.innerWidth;
+                randomY = Math.random() * window.innerHeight;
+            } while (!isValidPosition(randomX, randomY, minDistance));
+
+            randomAngle = Math.random() * 360;
+
+            unicorn.style.top = randomY + 'px';
+            unicorn.style.left = randomX + 'px';
+            unicorn.style.transform = 'rotate(' + randomAngle + 'deg)';
+
+            document.body.appendChild(unicorn);
+            unicorns.push({ x: randomX, y: randomY });
+        }
+
+        for (var i = 0; i < 30; i++) {
+            createRandomUnicorn();
+        }
+    </script>
+</body>
+</html>

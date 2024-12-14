@@ -23,7 +23,7 @@ async def send_noise_message(bot: Bot, chat_id: int):
         else:
             await bot.send_message(chat_id,f"Отправьте фотографию вашего глюкометра.\nПовторяю {noise_sl[str(chat_id)]} раз. На 3-ий раз сообщение о Вашей халатности будет направлено Вашему наблюдателю!")
 
-            sheduler.add_job(send_noise_message, trigger="date", run_date=dt.datetime.now() + dt.timedelta(minutes=0.01), # Для демострации
+            sheduler.add_job(send_noise_message, trigger="date", run_date=dt.datetime.now() + dt.timedelta(minutes=5), # Для демострации
                              kwargs={'bot': bot, "chat_id": chat_id})
             noise_sl[str(chat_id)] += 1
 
@@ -62,7 +62,7 @@ async def send_message_cron(bot: Bot, chat_id: int, name: str, hours, minutes, s
     await bot.send_message(chat_id, "Введите номера позиций, которые вы съели, через пробел:")
     await state.set_state(M.inp)  # Ожидание ввода пользователя
     await state.update_data(xes=xes, type=name)
-    sheduler.add_job(send_noise_message, trigger="date", run_date=dt.datetime.now() + dt.timedelta(minutes=0.1),
+    sheduler.add_job(send_noise_message, trigger="date", run_date=dt.datetime.now() + dt.timedelta(minutes=5),
                      kwargs={'bot': bot, "chat_id": chat_id})
     noise_sl[str(chat_id)] = 1
     t_n = dt.datetime.now()

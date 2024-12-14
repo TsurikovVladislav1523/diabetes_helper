@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Статистика пользователя</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #e6f7ff; /* Голубой фон */
+            color: #003366; /* Темно-синий текст */
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            text-align: center;
+            padding: 30px;
+            border: 2px solid #b3e0ff;
+            border-radius: 10px;
+            background-color: #ffffff; /* Белый фон для контента */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            width: 80%;
+            max-width: 1200px;
+            overflow-y: auto; /* Включаем прокрутку */
+            max-height: 80vh; /* Ограничиваем высоту контейнера */
+        }
+
+        h1 {
+            color: #007acc;
+            margin-bottom: 30px;
+        }
+
+        .gallery {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            justify-items: center;
+        }
+
+        .gallery img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Стили для прокрутки */
+        .container::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        .container::-webkit-scrollbar-thumb {
+            background-color: rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+        }
+
+        .container::-webkit-scrollbar-thumb:hover {
+            background-color: rgba(0, 0, 0, 0.8);
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Статистика пользователя</h1>
+        <div class="gallery">
+            {% for image in images %}
+                <div>
+                    <img src="{{ url_for('static', filename='uploads/' + image) }}" alt="{{ image }}">
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+
+</body>
+</html>

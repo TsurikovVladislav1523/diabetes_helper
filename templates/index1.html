@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Статистика пользователя</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #e6f7ff; /* Голубой фон */
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            position: relative;
+            overflow: hidden; /* Чтобы случайные единороги не выходили за пределы экрана */
+        }
+
+        .container {
+            text-align: center;
+            padding: 70px;
+            border: 2px solid #b3e0ff;
+            border-radius: 10px;
+            background-color: #ffffff; /* Белый фон для контента */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            z-index: 10; /* Контейнер будет выше, чем фоновое изображение */
+            width: 80%;
+            max-width: 1200px;
+            overflow-y: auto; /* Включаем прокрутку */
+            max-height: 80vh; /* Ограничиваем высоту контейнера */
+        }
+
+        h1 {
+            color: #007acc;
+            margin-bottom: 30px;
+        }
+
+        .user-data {
+            margin-bottom: 40px;
+            font-size: 18px;
+            color: #333;
+            background-color: #f2f9ff;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .gallery {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            justify-items: center;
+        }
+
+        .gallery img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Кнопка для скачивания архива */
+        .download-button {
+            margin-top: 40px;
+            padding: 15px 30px;
+            font-size: 18px;
+            color: white;
+            background-color: #007acc;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .download-button:hover {
+            background-color: #005f99;
+        }
+
+        /* Стили для прокрутки */
+        .container::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        .container::-webkit-scrollbar-thumb {
+            background-color: rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+        }
+
+        .container::-webkit-scrollbar-thumb:hover {
+            background-color: rgba(0, 0, 0, 0.8);
+        }
+
+        /* Стили для случайных единорогов на фоне */
+        .unicorn {
+            position: absolute;
+            width: 50px; /* Размер изображения */
+            height: 50px;
+            background-image: url('{{ url_for('static', filename='images/unicorn-background.png') }}'); /* Путь к изображению единорога */
+            background-size: cover;
+            background-position: center;
+            border-radius: 50%;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Статистика пользователя</h1>
+
+        <!-- Данные пользователя -->
+        {% if user_data %}
+            <div class="user-data">
+                <p><strong>ТГ ID:</strong> {{ user_data[1] }}</p>
+                <p><strong>Пол:</strong> {{ user_data[2] }}</p>
+                <p><strong>Рост:</strong> {{ user_data[3] }} см</p>
+                <p><strong>Вес:</strong> {{ user_data[4] }} кг</p>
+                <p><strong>Возраст:</strong> {{ user_data[5] }} лет</p>
+            </div>
+        {% else %}
+            <p>Пользователь не найден.</p>
+        {% endif %}
+
+        <!-- Галерея изображений -->
+        <div class="gallery">
+            {% for image in images %}
+                <div>
+                    <img src="{{ url_for('static', filename='uploads/' + image) }}" alt="{{ image }}">
+                </div>
+            {% endfor %}
+        </div>
+
+        <!-- Кнопка для скачивания архива -->
+        <a href="{{ url_for('download_zip', tg_id=user_data[1]) }}">
+            <button class="download-button">Скачать данные</button>
+        </a>
+    </div>
+
+    <script>
+        // Массив для хранения позиций единорогов
+        var unicorns = [];
+
+        // Функция для проверки, что новый единорог не наслаивается на существующие
+        function isValidPosition(x, y, minDistance) {
+            for (var i = 0; i < unicorns.length; i++) {
+                var unicorn = unicorns[i];
+                var dx = unicorn.x - x;
+                var dy = unicorn.y - y;
+                var distance = Math.sqrt(dx * dx + dy * dy);
+                if (distance < minDistance) {
+                    return false; // Позиция слишком близка к существующему
+                }
+            }
+            return true; // Позиция валидна
+        }
+
+        // Функция для создания случайных единорогов
+        function createRandomUnicorn() {
+            var unicorn = document.createElement('div');
+            unicorn.classList.add('unicorn');
+
+            var minDistance = 120; // Минимальное расстояние между единорогами
+
+            // Ищем валидную позицию для нового единорога
+            var randomX, randomY, randomAngle;
+            do {
+                randomX = Math.random() * window.innerWidth;
+                randomY = Math.random() * window.innerHeight;
+            } while (!isValidPosition(randomX, randomY, minDistance)); // Пока не найдем валидную позицию
+
+            // Случайный угол поворота
+            randomAngle = Math.random() * 360;
+
+            // Устанавливаем случайное положение и угол
+            unicorn.style.top = randomY + 'px';
+            unicorn.style.left = randomX + 'px';
+            unicorn.style.transform = 'rotate(' + randomAngle + 'deg)';
+
+            // Добавляем элемент на страницу
+            document.body.appendChild(unicorn);
+
+            // Сохраняем позицию единорога для будущих проверок
+            unicorns.push({ x: randomX, y: randomY });
+        }
+        }
+
+        // Создаем случайных единорогов
+        for (var i = 0; i < 30; i++) {  // 30 единорогов на фоне
+            createRandomUnicorn();
+        }
+    </script>
+
+</body>
+</html>
+

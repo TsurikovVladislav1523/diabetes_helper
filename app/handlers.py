@@ -21,6 +21,7 @@ from aiogram.filters import CommandStart, Command
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.context import FSMContext
+
 storage = MemoryStorage()
 bot = Bot(token=TOKEN)
 router = Router()
@@ -28,24 +29,30 @@ router = Router()
 sheduler.start()
 
 registered = get_all_users()
-print(registered)
-# sheduler.add_job(send_message_cron, trigger="date", run_date=dt.datetime.now() + dt.timedelta(seconds=5),
-#                  kwargs={'bot': bot, "chat_id": 1057505123, "name": "обед", "hours": 20, "minutes": 5, "state": FSMContext(storage=storage, key=StorageKey(bot_id=int(BOT_ID), chat_id=1057505123, user_id=1057505123, thread_id=None, business_connection_id=None, destiny='default'))})
+sheduler.add_job(send_message_cron, trigger="date", run_date=dt.datetime.now() + dt.timedelta(seconds=5),
+                 kwargs={'bot': bot, "chat_id": 1057505123, "name": "обед", "hours": 20, "minutes": 5, "state": FSMContext(storage=storage, key=StorageKey(bot_id=int(BOT_ID), chat_id=1057505123, user_id=1057505123, thread_id=None, business_connection_id=None, destiny='default'))})
 
-
-for tg_id, time, name in get_times_with_tg_id():
-    hours, minutes = map(int, time.split(":"))
-    # print(tg_id, minutes, hours)
-    t_n = dt.datetime.now()
-    t_d = dt.datetime.strptime(f"{t_n.year}:{t_n.month}:{t_n.day} {hours}:{minutes}", '%Y:%m:%d %H:%M') - t_n
-    print(t_d)
-    if t_n.hour*100+t_n.minute > hours*100+minutes:
-        t_n = dt.datetime.now() + dt.timedelta(days=1)
-        t_d = t_n - dt.datetime.strptime(f"{dt.datetime.now().year}:{dt.datetime.now().month}:{dt.datetime.now().day} {hours}:{minutes}", '%Y:%m:%d %H:%M')
+def create_sheduler_stert():
+    for tg_id, time, name in get_times_with_tg_id():
+        hours, minutes = map(int, time.split(":"))
+        # print(tg_id, minutes, hours)
+        t_n = dt.datetime.now()
+        t_d = dt.datetime.strptime(f"{t_n.year}:{t_n.month}:{t_n.day} {hours}:{minutes}", '%Y:%m:%d %H:%M') - t_n
         print(t_d)
-    sheduler.add_job(send_message_cron, trigger="date", run_date=t_d +dt.datetime.now(),
-                     kwargs={'bot': bot, "chat_id": tg_id, "name": name, "hours": hours, "minutes": minutes, "state": FSMContext(storage=storage, key=StorageKey(bot_id=int(BOT_ID), chat_id=tg_id, user_id=tg_id, thread_id=None, business_connection_id=None, destiny='default'))})
-    noise_sl[tg_id] = 0
+        if t_n.hour * 100 + t_n.minute > hours * 100 + minutes:
+            t_n = dt.datetime.now() + dt.timedelta(days=1)
+            t_d = t_n - dt.datetime.strptime(
+                f"{dt.datetime.now().year}:{dt.datetime.now().month}:{dt.datetime.now().day} {hours}:{minutes}",
+                '%Y:%m:%d %H:%M')
+            print(t_d)
+        sheduler.add_job(send_message_cron, trigger="date", run_date=t_d + dt.datetime.now(),
+                         kwargs={'bot': bot, "chat_id": tg_id, "name": name, "hours": hours, "minutes": minutes,
+                                 "state": FSMContext(storage=storage,
+                                                     key=StorageKey(bot_id=int(BOT_ID), chat_id=tg_id, user_id=tg_id,
+                                                                    thread_id=None, business_connection_id=None,
+                                                                    destiny='default'))})
+        noise_sl[tg_id] = 0
+
 
 class Reg(StatesGroup):
     gender = State()
@@ -112,7 +119,7 @@ async def reg_three(message: Message, state: FSMContext):
     date = await state.get_data()
     add_measurement(id, date["sug_lvl"][1], date["sug_lvl"][0], sugar_level=lvl)
     await message.answer(
-        f"Данные успешно сохранены, Время: {date['sug_lvl'][0]}")
+        f"Данные успешно сохранены, Дата: {date['sug_lvl'][0]}")
     await state.clear()
 
 
@@ -164,10 +171,12 @@ async def change_p_one(message: Message, state: FSMContext):
     msg = await message.answer_photo(photo=logo, caption="Выберете параметр, который хотите изменить",
                                      reply_markup=kb.change_key)
 
+
 @router.message(Command("get_id"))
 async def change_p_one(message: Message, state: FSMContext):
     id = message.from_user.id
     await message.answer(text=str(id))
+
 
 @router.callback_query(F.data == 'height')
 async def change_two(callback: CallbackQuery, state: FSMContext):
@@ -364,14 +373,30 @@ async def reg_five(message: Message, state: FSMContext):
         add_time(id, time, name)
         hours, minutes = map(int, time.split(":"))
         # print(tg_id, minutes, hours)
-        sheduler.add_job(send_message_cron, trigger="cron", hour=hours,
-                         minute=minutes,
-                         start_date=dt.datetime.now(), kwargs={'bot': bot, "chat_id": id, "name": name, "state": state})
+        t_n = dt.datetime.now()
+        t_d = dt.datetime.strptime(f"{t_n.year}:{t_n.month}:{t_n.day} {hours}:{minutes}", '%Y:%m:%d %H:%M') - t_n
+        print(t_d)
+        if t_n.hour * 100 + t_n.minute > hours * 100 + minutes:
+            t_n = dt.datetime.now() + dt.timedelta(days=1)
+            t_d = t_n - dt.datetime.strptime(
+                f"{dt.datetime.now().year}:{dt.datetime.now().month}:{dt.datetime.now().day} {hours}:{minutes}",
+                '%Y:%m:%d %H:%M')
+            print(t_d)
+        sheduler.add_job(send_message_cron, trigger="date", run_date=t_d + dt.datetime.now(),
+                         kwargs={'bot': bot, "chat_id": id, "name": name, "hours": hours, "minutes": minutes,
+                                 "state": FSMContext(storage=storage,
+                                                     key=StorageKey(bot_id=int(BOT_ID), chat_id=id, user_id=id,
+                                                                    thread_id=None, business_connection_id=None,
+                                                                    destiny='default'))})
     registered.append(id)
     noise_sl[id] = 0
     print(registered)
     await message.answer('Спасибо, регистрация завершена.')
     await state.clear()
+
+
+async def send_code(code, telegram_id):
+    await bot.send_message(chat_id=telegram_id, text=f"Ваш код подтверждения: {code}")
 
 
 '''Блок смотрящего'''
@@ -428,7 +453,9 @@ async def add_obs(message: Message, state: FSMContext):
 
     await state.clear()
 
-
+@router.message(Command("ward_image"))
+async def image(message: Message, state: FSMContext):
+    pass
 '''Конец блока'''
 
 '''Блок с шедулером'''
@@ -447,6 +474,7 @@ async def process_eaten(message: types.Message, state: FSMContext):
     for i in eaten_indices:
         xe += xes[i]
     await state.clear()
+    await message.answer("Отправьте фотографию вашего глюкометра в формате документа (без сжатия)")
     add_meal(id, type, xe, date)
 
 
