@@ -70,7 +70,7 @@ async def cmd_start(message: Message, state: FSMContext):
 
     if message.from_user.id not in registered:
         await message.answer(
-            "Вы не зарегистрированы в системе. Пожалуйста введите комаду /reg для прохождения регистрации")
+            "Вы не зарегистрированы в системе. Пожалуйста введите комаду /reg для прохождения регистрации", reply_markup=kb.ReplyKeyboardRemove())
 
 
 class Photo(StatesGroup):
@@ -356,8 +356,8 @@ async def reg_five(message: Message, state: FSMContext):
     msg = msg["msg_id"]
     await bot.edit_message_caption(chat_id=msg[1], message_id=msg[0],
                                    caption="Введите время Ваших приемов пищи на отдельных строках в формате: {ЧЧ:ММ [пробел дефис пробел] название приема пищи}")
-    await message.answer(
-        text='Введите время Ваших приемов пищи на отдельных строках в формате: {ЧЧ:ММ [пробел дефис пробел] название приема пищи}')
+    await message.answer_photo(photo=format_img,
+        caption='Введите время Ваших приемов пищи на отдельных строках в формате: {ЧЧ:ММ [пробел дефис пробел] название приема пищи}')
 
 
 @router.message(Reg.meals)

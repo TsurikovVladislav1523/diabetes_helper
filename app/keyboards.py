@@ -7,7 +7,7 @@ gender_key = InlineKeyboardMarkup(inline_keyboard=[
 ])
 
 change_key = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text='Рост', callback_data='height'), InlineKeyboardButton(text='Вес', callback_data='weight')], [InlineKeyboardButton(text='Время приемов пищи', callback_data='time_eat')]
+    [InlineKeyboardButton(text='Рост', callback_data='height'), InlineKeyboardButton(text='Вес', callback_data='weight')]
 ])
 
 
