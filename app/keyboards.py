@@ -6,6 +6,14 @@ gender_key = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text='МУЖ', callback_data='man'), InlineKeyboardButton(text='ЖЕН', callback_data='women')]
 ])
 
+yes_key = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text='Да', callback_data='yees'), InlineKeyboardButton(text='Нет', callback_data='nooo')]
+])
+
+yes_key1 = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text='Да', callback_data='yees1'), InlineKeyboardButton(text='Нет', callback_data='nooo1')]
+])
+
 change_key = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text='Рост', callback_data='height'), InlineKeyboardButton(text='Вес', callback_data='weight')]
 ])

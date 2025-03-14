@@ -3,8 +3,9 @@ import logging
 
 import io
 import os
+import random
 import re
-
+from aiogram.types import FSInputFile, InputFile
 from statistic import *
 import requests
 from PIL import Image
@@ -17,7 +18,7 @@ import app.keyboards as kb
 
 from app.sheduler import *
 import datetime as dt
-
+from app.sheduler import verif_ids
 from aiogram import Bot, Dispatcher, F, Router
 from aiogram.filters import CommandStart, Command
 from aiogram.types import Message, CallbackQuery
@@ -27,7 +28,6 @@ from aiogram.fsm.context import FSMContext
 storage = MemoryStorage()
 bot = Bot(token=TOKEN)
 router = Router()
-
 sheduler.start()
 
 registered = get_all_users()
@@ -54,7 +54,8 @@ def create_sheduler_start():
                                                                     thread_id=None, business_connection_id=None,
                                                                     destiny='default'))})
         noise_sl[tg_id] = 0
-
+        verif_ids[int(tg_id)] = 0
+    print(verif_ids)
 
 class Reg(StatesGroup):
     gender = State()
@@ -111,18 +112,113 @@ async def get_photo(message: Message, state: FSMContext):
         await message.answer(
             "Вы не зарегистрированы в системе. Пожалуйста введите комаду /reg для прохождения регистрации")
 
-
 @router.message(Photo.sug_lvl)
 async def reg_three(message: Message, state: FSMContext):
     '''ненужная функция, после подключения распознавалки удалить'''
-
-    lvl = message.text
     id = message.from_user.id
+    lvl = message.text.lower()
+    if "контроль" in lvl:
+        lvl, tag = lvl.split(" ")
+        await analysis_control(lvl, id)
+    else:
+        await analysis(lvl, id)
+
     date = await state.get_data()
     add_measurement(id, date["sug_lvl"][1], date["sug_lvl"][0], sugar_level=lvl)
     await message.answer(
         f"Данные успешно сохранены, Дата: {date['sug_lvl'][0]}")
     await state.clear()
+
+class Loading(StatesGroup):
+    photo = State()
+    datas = State()
+    no = State()
+
+@router.message(Command("load_photo"))
+async def load_photo(message: Message, state: FSMContext):
+    tg_id = message.from_user.id
+    code = random.randint(100000, 999999)
+    verif_ids[tg_id] = code
+    print(verif_ids)
+    s = f'http://192.168.1.9:8000/camera/{tg_id}/{code}'
+    await message.answer(s)
+    await message.answer(
+        "Перейдите по ссылке, сделайте фото и нажмите да, если в предпросмотре видны только данные измерения", reply_markup=kb.yes_key)
+    await state.set_state(Loading.photo)
+
+
+@router.callback_query(F.data == 'yees', Loading.photo)
+async def reg_two(callback: CallbackQuery, state: FSMContext):
+    "распознавалка"
+    res = "Не распознаны"
+    await callback.message.answer(
+        f"Данные измерения: {res}. Если данные верны, нажмите Да, если не верны, нажмите Нет и введите значение вручную",
+        reply_markup=kb.yes_key1)
+    await state.set_state(Loading.datas)
+    await state.update_data(res=res)
+
+@router.callback_query(F.data == 'nooo1', Loading.datas)
+async def reg_two(callback: CallbackQuery, state: FSMContext):
+    await state.set_state(Loading.no)
+
+@router.message(Loading.no)
+async def reg_two(message: Message, state: FSMContext):
+    res = await state.get_data()
+    res = res["res"]
+    id = message.from_user.id
+    lvl = message.text.lower()
+    if "контроль" in lvl:
+        lvl, tag = lvl.split(" ")
+        await analysis_control(lvl, id)
+    else:
+        await analysis(lvl, id)
+    photo = FSInputFile(f"uploads/full_image_{id}.png")  # Локальный файл
+    sent_photo = await bot.send_photo(message.chat.id, photo, caption="Вот ваше фото!")
+    file_id = sent_photo.photo[-1].file_id  # Берем самое большое качество
+    date = f"{dt.datetime.now().day}.{dt.datetime.now().month}"
+    add_measurement(id, file_id, date, sugar_level=lvl)
+    await message.answer(
+        f"Данные успешно сохранены, Дата: {date}")
+    verif_ids[id] = 0
+    await state.clear()
+    file_path1 = f"uploads/full_image_{id}.png"
+    file_path2 = f"uploads/frame_image_{id}.png"
+    if os.path.exists(file_path1):  # Проверяем, существует ли файл
+        os.remove(file_path1)
+    if os.path.exists(file_path2):  # Проверяем, существует ли файл
+        os.remove(file_path1)
+
+# @router.callback_query()
+# async def debug_callback(callback: CallbackQuery):
+#     print("Полученный callback_data:", callback.data)
+@router.callback_query(F.data == 'yees1', Loading.datas)
+async def reg_two1(callback: CallbackQuery, state: FSMContext):
+    print("Yes")
+    res = await state.get_data()
+    res = res["res"]
+    id = callback.from_user.id
+    file_path = f"uploads/full_image_{id}.png"
+    photo = FSInputFile(file_path)
+    sent_photo = await bot.send_photo(chat_id=id, photo=photo, caption="Вот ваше фото!")
+    file_id = sent_photo.photo[-1].file_id  # Берем самое большое качество
+    date = f"{dt.datetime.now().day}.{dt.datetime.now().month}"
+    add_measurement(id, file_id, date, sugar_level=res)
+    await callback.message.answer(
+        f"Данные успешно сохранены, Дата: {date}")
+    verif_ids[id] = 0
+    await state.clear()
+    file_path1 = f"uploads/full_image_{id}.png"
+    file_path2 = f"uploads/frame_image_{id}.png"
+    if os.path.exists(file_path1):  # Проверяем, существует ли файл
+        os.remove(file_path1)
+    if os.path.exists(file_path2):  # Проверяем, существует ли файл
+        os.remove(file_path1)
+
+@router.callback_query(F.data == 'nooo', Loading.photo)
+async def reg_two(callback: CallbackQuery, state: FSMContext):
+    await callback.message.answer(
+        "Перейдите по ссылке, сделайте фото и нажмите да, если в предпросмотре видны только данные измерения",
+        reply_markup=kb.yes_key)
 
 
 @router.message(Command("state"))
@@ -444,6 +540,7 @@ async def add_obs(message: Message, state: FSMContext):
 async def add_obs(message: Message, state: FSMContext):
     obs_id = message.text
     id = message.from_user.id
+    print("Added")
     add_oserver(id, obs_id)
     await message.answer('Наблюдатель успешно добавлен')
     await state.clear()
@@ -708,3 +805,74 @@ async def check_id_input(message: Message):
     text = message.text
     return len(text) == 10 and text.isdigit()
 
+'''Блок анализа уровня сахара'''
+
+async def analysis(sug_lvl, id):
+    sug_lvl = float(sug_lvl)
+    if sug_lvl > 11.1:
+        await bot.send_message(id, f'У Вас зафиксировано превышение нормы уровня сахара. Вам необходимо предпринять меры, а так же повторить измерения через 2 часа')
+        await bot.send_message(id, f"Если у Вас наблюдается:\n ◉ Сильная жажда\n ◉ Частое мочеиспускание \n ◉ Усталость, слабость \n ◉ Сухость во рту \n ◉ Затуманенное зрение \n ◉ Головная боль \n незамедлительно действуйте по настоянию Вашего врача либо обратитесь к специалисту.")
+        await bot.send_message(id, f"Пожалуйста, измерьте Ваш сахар завтра натощак (8-12 часов без еды) и отправьте результаты с подписью <контроль> в формате [11.1 контроль]")
+        sheduler.add_job(send_control_cron, trigger="date", run_date=dt.datetime.now() + dt.timedelta(minutes=1),
+                         kwargs={'bot': bot, "chat_id": id})
+        sheduler.add_job(send_control_cron, trigger="date", run_date=dt.datetime.now() + dt.timedelta(hours=2),
+                         kwargs={'bot': bot, "chat_id": id})
+    if sug_lvl <= 3.3:
+        await bot.send_message(id,f'У Вас зафиксирован дефицит уровня сахара. Вам необходимо предпринять меры, а так же повторить измерения через 2 часа')
+        await bot.send_message(id, f"Если у Вас наблюдается:\n ◉ Слабость, головокружение\n ◉ Чувство голода \n ◉ Дрожь в теле \n ◉ Потливость \n ◉ Затуманенное зрение \n ◉ Учащенное сердцебиение \n ◉ Раздражительность, тревожность \n ◉ Судороги \n незамедлительно действуйте по настоянию Вашего врача либо обратитесь к специалисту. Если такой возможности нет, то съешьте или выпейте что-то, содержащее быстрые углеводы: 1–2 чайные ложки сахара или меда, стакан фруктового сока или сладкой газировки, таблетки глюкозы (по инструкции). Через 15 минут проверьте уровень сахара снова.")
+        sheduler.add_job(send_control_cron, trigger="date", run_date=dt.datetime.now() + dt.timedelta(minutes=15),
+                         kwargs={'bot': bot, "chat_id": id})
+async def analysis_control(sug_lvl, id):
+    sug_lvl = float(sug_lvl)
+    if sug_lvl > 7.8:
+        obs_id = get_obs_id_1(id)[0][0]
+        await bot.send_message(id, f"У пользователя {obs_id} был повышен захар после еды, а также остался выше нормы натощак")
+        await bot.send_message(id,
+                               f'У Вас зафиксировано превышение нормы уровня сахара. Вам необходимо предпринять меры, а так же повторить измерения через 2 часа')
+        await bot.send_message(id,
+                               f"Если у Вас наблюдается:\n ◉ Сильная жажда\n ◉ Частое мочеиспускание \n ◉ Усталость, слабость \n ◉ Сухость во рту \n ◉ Затуманенное зрение \n ◉ Головная боль \n незамедлительно обратитесь к специалисту, так как Ваш уровень сахара не снижается.")
+        sheduler.add_job(send_control_cron, trigger="date", run_date=dt.datetime.now() + dt.timedelta(hours=2),
+                         kwargs={'bot': bot, "chat_id": id})
+
+'''Конец блока'''
+
+'''Блок анализа уровня ХЕ'''
+
+@router.message(Command("xe"))
+async def image(message: Message, state: FSMContext):
+    id = message.from_user.id
+    all_data = get_meal(id)
+    sl = {}
+    x = []
+    y = []
+    now = dt.datetime.now()
+
+    for data in all_data:
+        if data[4] not in x:
+            x.append(data[4])
+            y.append(round(float(data[3]), 2))
+        else:
+            y[x.index(data[4])] += round(float(data[3]), 2)
+    for i in range(len(y)):
+        y[i] = round(y[i], 1)
+    print(x, '\n' ,y)
+    txt = f''
+    tod = 0
+    for i in range(len(x)):
+        d = dt.datetime.strptime(f"{now.year}:{x[i].split('.')[1]}:{x[i].split('.')[0]} {now.hour}:{now.minute}", '%Y:%m:%d %H:%M')
+        delta = (now - d).days
+        if delta < 7 and delta > 0:
+            if float(y[i]) > 20:
+                txt += f"{x[i]} у Вас было превышение уровня потребленных хлебных единиц приблизительно на {round((float(y[i]) - 20), 2)} ХЕ \n"
+        elif delta == 0:
+            tod = float(y[i])
+    if txt:
+        txt += f'Пожалуйста, соблюдайте диету и не пренебрегайте физической активностью'
+    else:
+        txt += 'В течение последних 7-ми дней вы соблюдали диету. Продолжайте в том же духе!'
+    await message.answer(txt)
+    if tod > 20:
+        await message.answer('Вы уже превысили рекомендуемую среднюю норму потребления ХЕ в день, советуем Вам воздержаться от пищи до следующего дня')
+    else:
+        await message.answer(f"До средней нормы потребления ХЕ Вам осталось {20 - tod}")
+'''Конец блока'''

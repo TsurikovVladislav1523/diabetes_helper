@@ -52,29 +52,30 @@ def sugar_level(id):
 def meal_stats(id):
     all_data = get_meal(id)
     sl = {}
+    print(all_data)
     for data in all_data:
         if data[2] not in sl:
             sl[data[2]] = {}
-            sl[data[2]][data[4]] = data[3]
+            sl[data[2]][data[4]] = float(data[3])
         else:
             if data[4] in sl[data[2]]:
-                sl[data[2]][data[4]] += data[3]
+                sl[data[2]][data[4]] += float(data[3])
             else:
-                sl[data[2]][data[4]] = data[3]
+                sl[data[2]][data[4]] = float(data[3])
     data_coords = {}
     for key in sl:
         data_coords[key] = [[],[]]
         for date in sl[key]:
             data_coords[key][0].append(date)
-            data_coords[key][1].append(round(sl[key][date], 2))
+            data_coords[key][1].append(round(float(sl[key][date]), 2))
     x = []
     y = []
     for data in all_data:
         if data[4] not in x:
             x.append(data[4])
-            y.append(round(data[3], 2))
+            y.append(round(float(data[3]), 2))
         else:
-            y[-1] += round(data[3], 2)
+            y[x.index(data[4])] += round(float(data[3]), 2)
     for i in range(len(y)):
         y[i] = round(y[i], 1)
     graphs = []
@@ -160,26 +161,26 @@ def meal_stats_web(id):
     for data in all_data:
         if data[2] not in sl:
             sl[data[2]] = {}
-            sl[data[2]][data[4]] = data[3]
+            sl[data[2]][data[4]] = float(data[3])
         else:
             if data[4] in sl[data[2]]:
-                sl[data[2]][data[4]] += data[3]
+                sl[data[2]][data[4]] += float(data[3])
             else:
-                sl[data[2]][data[4]] = data[3]
+                sl[data[2]][data[4]] = float(data[3])
     data_coords = {}
     for key in sl:
         data_coords[key] = [[],[]]
         for date in sl[key]:
             data_coords[key][0].append(date)
-            data_coords[key][1].append(round(sl[key][date], 2))
+            data_coords[key][1].append(round(float(sl[key][date]), 2))
     x = []
     y = []
     for data in all_data:
         if data[4] not in x:
             x.append(data[4])
-            y.append(round(data[3], 2))
+            y.append(round(float(data[3]), 2))
         else:
-            y[-1] += round(data[3], 2)
+            y[x.index(data[4])] += round(float(data[3]), 2)
     for i in range(len(y)):
         y[i] = round(y[i], 1)
     graphs = []

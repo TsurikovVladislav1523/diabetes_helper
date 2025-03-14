@@ -1,8 +1,10 @@
+import base64
 import os
 import threading
 import zipfile
+from PIL import Image
 from datetime import datetime
-from flask import Flask, render_template, request, send_file
+from flask import Flask, render_template, request, send_file, jsonify
 from flask import redirect, url_for
 import random
 
@@ -22,6 +24,7 @@ from PIL.ExifTags import TAGS
 from aiogram.fsm.storage.memory import MemoryStorage
 from statistic import *
 from config import *
+from app.sheduler import verif_ids
 import aiogram
 from app.handlers import router, storage, send_code, create_sheduler_start
 from aiogram import Bot, Dispatcher, F
@@ -112,6 +115,45 @@ def create_zip(user_id):
 def download_zip(tg_id):
     zip_buffer, zip_filename = create_zip(tg_id)
     return send_file(zip_buffer, as_attachment=True, download_name=zip_filename, mimetype="application/zip")
+@app.route('/camera/<int:tg_id>/<int:verif>')
+def cam(tg_id, verif):
+    if verif == verif_ids[tg_id]:
+        return render_template("camera.html", tg_id=tg_id)
+    else:
+        return render_template("attention.html", tg_id=tg_id)
+
+@app.route('/save_photo', methods=['POST'])
+def save_photo():
+    try:
+        data = request.get_json()
+        tg_id = data.get('tg_id', 'unknown')  # Получаем tg_id
+        image_data = data['image'].split(',')[1]
+        image_bytes = base64.b64decode(image_data)
+
+        image = Image.open(io.BytesIO(image_bytes))
+        filename = f"full_image_{tg_id}.png"
+        image.save(os.path.join(UPLOAD_FOLDER, filename))
+
+        return jsonify({'message': f'Полное фото сохранено как {filename}'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/save_frame_photo', methods=['POST'])
+def save_frame_photo():
+    try:
+        data = request.get_json()
+        tg_id = data.get('tg_id', 'unknown')
+        image_data = data['image'].split(',')[1]
+        image_bytes = base64.b64decode(image_data)
+
+        image = Image.open(io.BytesIO(image_bytes))
+        filename = f"frame_image_{tg_id}.png"
+        image.save(os.path.join(UPLOAD_FOLDER, filename))
+
+        return jsonify({'message': f'Фото в рамке сохранено как {filename}'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 if __name__ == "__main__":

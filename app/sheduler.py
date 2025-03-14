@@ -7,6 +7,7 @@ from aiogram.fsm.context import FSMContext
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import datetime as dt
 noise_sl = {}
+verif_ids = {}
 sheduler = AsyncIOScheduler(timezone="Europe/Moscow")
 
 
@@ -14,12 +15,13 @@ class M(StatesGroup):
     inp = State()
 
 async def send_noise_message(bot: Bot, chat_id: int):
-    if noise_sl[str(chat_id)]:
+    if noise_sl[str(chat_id)] != 0:
         if noise_sl[str(chat_id)] == 3:
             await bot.send_message(chat_id, f"Отправьте фотографию вашего глюкометра.\nСообщение о Вашей халатности будет направлено Вашему наблюдателю!")
             noise_sl[str(chat_id)] = 0
             id = get_obs_id_1(chat_id)[0][0]
             await bot.send_message(id, f"Пользователь {chat_id} игнорирует отправку данных")
+            noise_sl[str(chat_id)] = 0
         else:
             await bot.send_message(chat_id,f"Отправьте фотографию вашего глюкометра.\nПовторяю {noise_sl[str(chat_id)]} раз. На 3-ий раз сообщение о Вашей халатности будет направлено Вашему наблюдателю!")
 
@@ -77,3 +79,11 @@ async def send_message_cron(bot: Bot, chat_id: int, name: str, hours, minutes, s
     sheduler.add_job(send_message_cron, trigger="date", run_date=t_d + dt.datetime.now(),
                      kwargs={'bot': bot, "chat_id": chat_id, "name": name, "hours": hours, "minutes": minutes,
                              "state": state})
+
+async def send_control_cron(bot: Bot, chat_id: int):
+    '''Отправка меню, сохранение в таблицу'''
+    # Подключение к базе данных
+    await bot.send_message(chat_id, f"Было зафиксированно отклонение от нормы. Пожалуйста, повторите измерение и отправьте данные")
+    sheduler.add_job(send_noise_message, trigger="date", run_date=dt.datetime.now() + dt.timedelta(minutes=5),
+                     kwargs={'bot': bot, "chat_id": chat_id})
+    noise_sl[str(chat_id)] = 1

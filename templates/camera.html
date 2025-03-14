@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Камера Flask</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #e6f7ff;
+            color: #003366;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+        .container {
+            text-align: center;
+            padding: 20px;
+            border: 2px solid #b3e0ff;
+            border-radius: 10px;
+            background-color: #ffffff;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 400px;
+            position: relative;
+        }
+        .button {
+            display: block;
+            margin: 10px auto;
+            padding: 10px 30px;
+            font-size: 14px;
+            color: #ffffff;
+            background-color: #007acc;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .button:hover {
+            background-color: #005999;
+        }
+        .video-container {
+            width: 100%;
+            position: relative;
+            background: black;
+            overflow: hidden;
+            border-radius: 10px;
+            padding-bottom: 133%;
+        }
+        video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .frame {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80%;
+            height: 26.67%;
+            border: 4px solid white;
+            pointer-events: none;
+        }
+        .preview-container {
+            width: 100%;
+            margin-top: 20px;
+            display: none;
+        }
+        .preview-container img {
+            width: 100%;
+            border-radius: 10px;
+            border: 2px solid #007acc;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <p>Сделайте фото так, чтобы только показания попадали в белую рамку</p>
+        <div class="video-container">
+            <video id="video" autoplay></video>
+            <div class="frame"></div>
+        </div>
+        <button class="button" id="switchCamera">Переключить камеру</button>
+        <button class="button" id="snap">Сделать фото</button>
+        <canvas id="canvas" style="display:none;"></canvas>
+
+        <div class="preview-container" id="previewContainer">
+            <p>Обрезанное фото:</p>
+            <img id="preview" src="" alt="Обрезанное изображение">
+        </div>
+    </div>
+
+    <script>
+        let tg_id = "{{ tg_id }}";  // Получаем tg_id из Flask
+
+        let video = document.getElementById('video');
+        let canvas = document.getElementById('canvas');
+        let context = canvas.getContext('2d');
+        let switchCamera = document.getElementById('switchCamera');
+        let snap = document.getElementById('snap');
+        let preview = document.getElementById('preview');
+        let previewContainer = document.getElementById('previewContainer');
+        let currentStream;
+        let currentCamera = 'user';
+
+        function startCamera(camera = 'user') {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+            }
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: camera } })
+                .then(stream => {
+                    currentStream = stream;
+                    video.srcObject = stream;
+                })
+                .catch(err => console.error("Ошибка камеры: ", err));
+        }
+
+        snap.addEventListener('click', () => {
+            const width = 900;
+            const height = 1200;
+
+            canvas.width = width;
+            canvas.height = height;
+
+            const videoAspectRatio = video.videoWidth / video.videoHeight;
+            const targetAspectRatio = 3 / 4;
+
+            let drawWidth = video.videoWidth;
+            let drawHeight = video.videoHeight;
+
+            if (videoAspectRatio > targetAspectRatio) {
+                drawWidth = video.videoHeight * targetAspectRatio;
+                drawHeight = video.videoHeight;
+            } else {
+                drawWidth = video.videoWidth;
+                drawHeight = video.videoWidth / targetAspectRatio;
+            }
+
+            const offsetX = (video.videoWidth - drawWidth) / 2;
+            const offsetY = (video.videoHeight - drawHeight) / 2;
+
+            context.drawImage(video, offsetX, offsetY, drawWidth, drawHeight, 0, 0, width, height);
+            const fullImageData = canvas.toDataURL('image/png');
+
+            // Координаты рамки внутри полного изображения
+            const frameWidth = width * 0.8;  // 80% ширины (720 пикс.)
+            const frameHeight = frameWidth / 3; // Соотношение 3:1 (720x240)
+            const frameX = (width - frameWidth) / 2; // Центрирование по X
+            const frameY = (height - frameHeight) / 2; // Центрирование по Y
+
+            // Вырезаем область рамки
+            const frameCanvas = document.createElement('canvas');
+            frameCanvas.width = frameWidth;
+            frameCanvas.height = frameHeight;
+            const frameContext = frameCanvas.getContext('2d');
+
+            frameContext.drawImage(canvas, frameX, frameY, frameWidth, frameHeight, 0, 0, frameWidth, frameHeight);
+            const frameImageData = frameCanvas.toDataURL('image/png');
+
+            // Отобразить фото в preview
+            preview.src = frameImageData;
+            previewContainer.style.display = 'block';
+
+            // Отправляем полное изображение
+            fetch('/save_photo', {
+                method: 'POST',
+                body: JSON.stringify({ image: fullImageData, tg_id: tg_id }),
+                headers: { 'Content-Type': 'application/json' }
+            }).then(response => console.log('Полное фото сохранено'))
+              .catch(err => console.error('Ошибка при сохранении полного фото:', err));
+
+            // Отправляем изображение внутри рамки
+            fetch('/save_frame_photo', {
+                method: 'POST',
+                body: JSON.stringify({ image: frameImageData, tg_id: tg_id }),
+                headers: { 'Content-Type': 'application/json' }
+            }).then(response => console.log('Фото в рамке сохранено'))
+              .catch(err => console.error('Ошибка при сохранении рамочного фото:', err));
+        });
+
+        switchCamera.addEventListener('click', () => {
+            currentCamera = currentCamera === 'user' ? 'environment' : 'user';
+            startCamera(currentCamera);
+        });
+
+        startCamera();
+    </script>
+</body>
+</html>
